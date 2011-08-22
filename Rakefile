@@ -12,7 +12,7 @@ end
 # running the experiment.
 #
 # @author Kevin Jalbert
-# @version 0.2.0
+# @version 0.3.0
 
 # Project and environment variables (absolute paths) (user must/can modify)
 @eclipse = "/home/jalbert/Desktop/eclipse/"
@@ -26,6 +26,7 @@ end
 @java_memory = "-Xmx1g"
 @max_cores = "1"
 @python = "python2" # Python 2.7 command
+@ruby = "ruby" # Ruby command
 @classpath = nil  # Acquired through ant/maven extraction
 
 # Variables related to setup and execution
@@ -59,7 +60,8 @@ task :list do
 end
 
 desc "Install the necessary components for this project"
-task :install => [:install_javalanche, :install_eclipse_metrics_xml_reader] do
+task :install => [:install_javalanche, :install_eclipse_metrics_xml_reader,
+                  :install_libsvm] do
   puts "Necessary components are present and ready"
 end
 
@@ -105,9 +107,29 @@ task :install_eclipse_metrics_xml_reader do
   end
 end
 
+# Install libsvm
+task :install_libsvm do
+
+end
+
 # Set up support vector machine using the mutation scores and metrics
 desc "Set up the support vector machine for training"
 task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm] do
+  
+  # Synthesis the libsvm and the mutation scores into known libsvm data
+  sh "#{@ruby} metric_libsvm_synthesizer.rb " \
+     "./data/#{@project_name}_class.libsvm " \
+     "./data/#{@project_name}_class.labels " \
+     "./data/#{@project_name}_class_mutation.score"
+  sh "#{@ruby} metric_libsvm_synthesizer.rb " \
+     "./data/#{@project_name}_method.libsvm " \
+     "./data/#{@project_name}_method.labels " \
+     "./data/#{@project_name}_method_mutation.score"
+end
+
+# Perform cross validation of the project
+desc "Perform cross validation on the project"
+task :cross_validation => :setup_svm do
 
 end
 
@@ -204,7 +226,12 @@ task :get_mutation_scores => [:install_javalanche, :setup_javalanche] do
   end
 
   # Extract mutation scores from Javalanche
-
+  puts "Extracting mutation scores from Javalanche results"
+  sh "#{@ruby} mutation_scorer.rb #{@project_name} " \
+     "#{@project_location}analyze.csv"
+  mv("#{@project_name}_class_mutation.score", "./data/")
+  mv("#{@project_name}_method_mutation.score", "./data/")
+  mv("#{@project_name}_mutation.operators", "./data/")
 end
 
 # Set up Javalanche 
