@@ -12,21 +12,22 @@ end
 # running the experiment.
 #
 # @author Kevin Jalbert
-# @version 0.3.0
+# @version 0.4.0
 
 # Project and environment variables (absolute paths) (user must/can modify)
 @eclipse = "/home/jalbert/Desktop/eclipse/"
 @eclipse_launcher = "#{@eclipse}plugins/" \
            "org.eclipse.equinox.launcher_1.1.0.v20100507.jar"
 @eclipse_workspace = "/home/jalbert/workspace/"
-@project_name = "joda-time"
+@project_name = "joda-time-2.0"
 @project_prefix = "org.joda.time"
 @project_testsuite = "org.joda.time.TestAll"
 @project_location = "#{@eclipse_workspace}#{@project_name}/"
 @java_memory = "-Xmx1g"
 @max_cores = "1"
-@python = "python2" # Python 2.7 command
-@ruby = "ruby" # Ruby command
+@python = "python2"  # Python 2.7 command
+@ruby = "ruby"  # Ruby command
+@rake = "rake"  # Rake command
 @classpath = nil  # Acquired through ant/maven extraction
 
 # Variables related to setup and execution
@@ -42,21 +43,27 @@ end
                        "javalanche/builds/#{@javalanche_tar}"
 @javalanche_location = "#{@home}/#{@javalanche}"
 @javalanche_project_file = "#{@project_location}javalanche.xml"
+@libsvm = "libsvm-3.1"
+@libsvm_tar = "libsvm-3.1.tar.gz"
+@libsvm_download = "http://www.csie.ntu.edu.tw/~cjlin/libsvm/libsvm-3.1.tar.gz"
+@cross_validation_folds = 10
 
 # Files to remove via clobbering them
 CLOBBER.include("./#{@javalanche}")
 CLOBBER.include("./eclipse_metrics_xml_reader")
+CLOBBER.include("./#{@libsvm}")
 CLEAN.include("./data")
 
 task :default => :list
 
 # Displays the available commands as well as required tools
 task :list do
-  sh "rake -T"
-  puts "\nWork flow: 'install' -> 'setup_svm'"
+  sh "#{@rake} -T"
+  puts "\nWork flow: 'install' -> 'setup_svm' -> 'cross_validation'"
   puts "'ant' and 'mvn' are required to use Javalanche"
   puts "'eclipse' is required to use Eclipse Metrics plugin"
   puts "'python' and 'git' are required to use eclipse_metrics_xml_reader"
+  puts "Project being used must be imported in Eclipse (with metrics enabled)"
 end
 
 desc "Install the necessary components for this project"
@@ -72,26 +79,28 @@ task :install_javalanche do
   if not File.directory?(@javalanche)
     
     # Download Javalanche's tar file
-    puts "\nDirectory #{@javalanche} does not exists"
-    puts "\nDownloading #{@javalanche_tar} (15.3 MB)"
+    puts "[LOG] Directory #{@javalanche} does not exists"
+    puts "[LOG] Downloading #{@javalanche_tar} (15.3 MB)"
     writeOut = open(@javalanche_tar, "wb")
     writeOut.write(open(@javalanche_download).read)
     writeOut.close
 
     # Extract all files to the current directory
-    puts "\nExtracting #{@javalanche_tar}"
+    puts "[LOG] Extracting #{@javalanche_tar}"
     a = Archive.new(@javalanche_tar)
     a.extract
 
     # Deleting Javalanche's tar file
-    puts "\nDeleting #{@javalanche_tar}"
+    puts "[LOG] Deleting #{@javalanche_tar}"
     rm @javalanche_tar
 
     # Create data directory to place misc data files
-    mkdir "data"
+    if not File.directory?("data")
+      mkdir "data"
+    end
 
   else
-    puts "\nDirectory #{@javalanche} already exists"
+    puts "[LOG] Directory #{@javalanche} already exists"
   end
 end
 
@@ -100,23 +109,57 @@ task :install_eclipse_metrics_xml_reader do
 
   # Perform install only if Javalanche directory doesn't exist
   if not File.directory?("eclipse_metrics_xml_reader")
-    puts "\nCloning Eclipse metrics XML reader"
+    puts "[LOG] Cloning Eclipse metrics XML reader"
     sh "git clone #{@eclipse_metrics_xml_reader_git}"
   else
-    puts "Directory eclipse_metrics_xml_reader already exists"
+    puts "[LOG] Directory eclipse_metrics_xml_reader already exists"
+  end
+
+  # Create data directory to place misc data files
+  if not File.directory?("data")
+    mkdir "data"
   end
 end
 
 # Install libsvm
 task :install_libsvm do
+  # Perform install only if libsvm directory doesn't exist
+  if not File.directory?(@libsvm)
+    
+    # Download libsvm's tar file
+    puts "[LOG] Directory #{@libsvm} does not exists"
+    puts "[LOG] Downloading #{@libsvm_tar} (599.6 KB)"
+    writeOut = open(@libsvm_tar, "wb")
+    writeOut.write(open(@libsvm_download).read)
+    writeOut.close
 
+    # Extract all files to the current directory
+    puts "[LOG] Extracting #{@libsvm_tar}"
+    a = Archive.new(@libsvm_tar)
+    a.extract
+
+    # Deleting libsvm's tar file
+    puts "[LOG] Deleting #{@libsvm_tar}"
+    rm @libsvm_tar
+
+  else
+    puts "[LOG] Directory #{@libsvm} already exists"
+  end
 end
 
 # Set up support vector machine using the mutation scores and metrics
 desc "Set up the support vector machine for training"
 task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm] do
   
+  # Add test metrics to the methods's metrics
+  puts "[LOG] Adding testing metrics to method metrics"
+  sh "#{@ruby} " \
+     "./test_suite_method_metrics.rb #{@project_location} " \
+     "./data/#{@project_name}_method.labels " \
+     "./data/#{@project_name}_method.libsvm"
+
   # Synthesis the libsvm and the mutation scores into known libsvm data
+  puts "[LOG] Synthesizing metrics and mutation scores to a trainable libsvm"
   sh "#{@ruby} metric_libsvm_synthesizer.rb " \
      "./data/#{@project_name}_class.libsvm " \
      "./data/#{@project_name}_class.labels " \
@@ -129,14 +172,37 @@ end
 
 # Perform cross validation of the project
 desc "Perform cross validation on the project"
-task :cross_validation => :setup_svm do
+task :cross_validation  do
 
+  Dir.chdir("#{@libsvm}") do
+    puts "[LOG] Making libsvm"
+    sh "make"
+    Dir.chdir("tools") do
+
+      puts "[LOG] Modifying grid.py to use #{@max_cores} cores and " \
+           "#{@cross_validation_folds} folds"
+      file = File.open("grid.py", 'r')
+      content = file.read
+      file.close 
+
+      content.gsub!("nr_local_worker = 1", "nr_local_worker = #{@max_cores}")
+      content.gsub!("fold = 5", "fold = #{@cross_validation_folds}")
+
+      file = File.open("grid.py", 'w')
+      file.write(content)
+      file.close
+
+      puts "[LOG] Performing cross validation"
+      sh "#{@python} easy.py ./../../data/#{@project_name}_class.libsvm_synth"
+      sh "#{@python} easy.py ./../../data/#{@project_name}_method.libsvm_synth"
+    end
+  end
 end
 
 # Converts the metric XML file into a libsvm format
 task :convert_metrics_to_libsvm => [:get_eclipse_metrics_xml, 
                                     :install_eclipse_metrics_xml_reader] do
-    puts "Converting metrics to libsvm format"
+    puts "[LOG] Converting metrics to libsvm format"
     sh "#{@python} " \
        "./eclipse_metrics_xml_reader/src/eclipse_metrics_xml_reader.py -i " \
        "./data/#{@project_name}.xml"
@@ -155,25 +221,35 @@ task :get_eclipse_metrics_xml => :setup_metrics_build_file do
       if File.exists?(@eclipse_project_build)
 
         # Execute the headless Eclipse command to export metrics of the project
-        puts "Executing headless Eclipse Metrics plugin report export"
-        sh "java #{@java_memory} -jar #{@eclipse_launcher} -noupdate " \
-           "-application org.eclipse.ant.core.antRunner -data " \
-           "#{@eclipse_workspace} -file #{@eclipse_project_build}"
-
-        puts "If an error occurred make sure that the project was " \
-             "successfully imported into Eclipse with no errors."
+        puts "[LOG] Executing headless Eclipse Metrics plugin report export"
+        
+        begin
+          sh "java #{@java_memory} -jar #{@eclipse_launcher} -noupdate " \
+             "-application org.eclipse.ant.core.antRunner -data " \
+             "#{@eclipse_workspace} -file #{@eclipse_project_build}"
+        rescue Exception=>e
+          # Restore backup build file
+          puts "[LOG] Restoring project's original build file"
+          FileUtils.rm(@eclipse_project_build)
+          if File.exist?(@eclipse_project_build + ".backup")
+            FileUtils.mv(@eclipse_project_build + ".backup", @eclipse_project_build)
+          end
+          puts "[LOG] If an error occurred make sure that the project was " \
+               "successfully imported into Eclipse with no errors."
+          abort("[ERROR] Problem with Eclipse Project's setup")
+        end
       else
-        puts "ERROR: The #{@eclipse_project_build} file does not exist"
+        puts "[ERROR] The #{@eclipse_project_build} file does not exist"
       end
     else
-      puts "ERROR: The #{@eclipse_metric_plugin} directory does not exist"
+      puts "[ERROR] The #{@eclipse_metric_plugin} directory does not exist"
     end
   else
-    puts "ERROR: The #{@eclipse_launcher} file does not exist"
+    puts "[ERROR] The #{@eclipse_launcher} file does not exist"
   end
 
   # Restore backup build file
-  puts "Restoring project's original build file"
+  puts "[LOG] Restoring project's original build file"
   FileUtils.rm(@eclipse_project_build)
   if File.exist?(@eclipse_project_build + ".backup")
     FileUtils.mv(@eclipse_project_build + ".backup", @eclipse_project_build)
@@ -184,7 +260,7 @@ end
 task :setup_metrics_build_file do
 
   # Create a backup of the build file
-  puts "Backing up project's build file"
+  puts "[LOG] Backing up project's build file"
   FileUtils.cp(@eclipse_project_build, @eclipse_project_build + ".backup")
 
   # Create new build file
@@ -210,7 +286,7 @@ task :setup_metrics_build_file do
   build_content << "\n</project>"  
 
   # Create a new build file with the new metrics task
-  puts "Creating project's new build file"
+  puts "[LOG] Creating project's new build file"
   build_file = File.open(@eclipse_project_build, 'w')
   build_file.write(build_content)
   build_file.close
@@ -221,12 +297,12 @@ task :get_mutation_scores => [:install_javalanche, :setup_javalanche] do
 
   # Run javalanche
   Dir.chdir(@project_location) do
-    puts "Executing Javalanche command"
+    puts "[LOG] Executing Javalanche command"
     sh "#{create_javalanche_command}"
   end
 
   # Extract mutation scores from Javalanche
-  puts "Extracting mutation scores from Javalanche results"
+  puts "[LOG] Extracting mutation scores from Javalanche results"
   sh "#{@ruby} mutation_scorer.rb #{@project_name} " \
      "#{@project_location}analyze.csv"
   mv("#{@project_name}_class_mutation.score", "./data/")
@@ -238,7 +314,7 @@ end
 task :setup_javalanche do
 
   # Find and set the classpath for the project
-  puts "Finding classpath of the project"
+  puts "[LOG] Finding classpath of the project"
   find_and_set_classpath
 
   # Read default javalanche.xml file in
@@ -262,32 +338,58 @@ task :setup_javalanche do
   content << "\n</project>"
 
   # Write new target to javalanche.xml within project directory
-  puts "Created new javalanche.xml file in project directory"
+  puts "[LOG] Created new javalanche.xml file in project directory"
   file = File.open("#{@project_location}javalanche.xml", 'w')
+  file.write(content)
+  file.close
+
+  # Read log4j property file
+  file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'r')
+  content = file.read
+  file.close 
+
+  # Adjust log4j reporting level from WARN to INFO (needed for later step)
+  content.gsub!("log4j.rootCategory=WARN", "log4j.rootCategory=INFO")
+
+  # Overwrite the log4j file with the new content
+  puts "[LOG] Adjusting log4j's reporting level to INFO"
+  file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'w')
+  file.write(content)
+  file.close
+
+  # Read hibernate.cfg property file
+  file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'r')
+  content = file.read
+  file.close 
+
+  # Adjust hibernate.cfg idle test time (try to avoid possible deadlock error)
+  content.gsub!("\"hibernate.c3p0.idle_test_period\">3000", 
+                "\"hibernate.c3p0.idle_test_period\">300")
+
+  # Overwrite the hibernate.cfg file with the new content
+  puts "[LOG] Adjusting hibernate.cfg idle test time to 300"
+  file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'w')
   file.write(content)
   file.close
 
   # Create the runMutations.sh script in the project directory
   content = "#!/bin/sh"
   content << "\nOUTPUTFILE=mutation-files/output-runMutation-${2}.txt"
-  content << "\nBACKOUTPUTFILE=mutation-files/back-output-runMutation-${2}.txt"
-  content << "\nif [ -e $OUTPUTFILE ]"
-  content << "\nthen"
-  content << "\n        mv $OUTPUTFILE ${BACKOUTPUTFILE}"
-  content << "\nfi"
   content << "\nwhile  ! grep -q ALL_RESULTS ${OUTPUTFILE}"
   content << "\ndo"
   content << "\n        echo \"Task ${2} not completed - starting again\""
   content << "\n        nice -10 ant -f javalanche.xml " 
   content << "-Dprefix=#{@project_prefix} -Dcp=#{@classpath} " 
   content << "-Dtestsuite=#{@project_testsuite} " 
-  content << "-Djavalanche=#{@javalanche_location} runMutationsCoverage ${3} " 
-  content << "-Dmutation.file=${1}  2>&1 | tee -a $OUTPUTFILE"
+  content << "-Djavalanche=#{@javalanche_location} "
+  content << "-Djavalanche.properties.add="
+  content << "-Djavalanche.stop.after.first.fail=false runMutationsCoverage " 
+  content << "${3} -Dmutation.file=${1}  2>&1 | tee -a $OUTPUTFILE"
   content << "\n        sleep 1"
   content << "\ndone"
 
   # Write runMutations.sh within project directory
-  puts "Created runMutations.sh script in project directory"
+  puts "[LOG] Created runMutations.sh script in project directory"
   file = File.open("#{@project_location}runMutations.sh", 'w')
   file.chmod(0766)
   file.write(content)
@@ -295,8 +397,6 @@ task :setup_javalanche do
 end
 
 def create_javalanche_command  
-
-    # Return command to execute Javalanche
     command = "ant -f javalanche.xml -Dprefix=#{@project_prefix} "
     command << "-Dcp=#{@classpath} -Dtestsuite=#{@project_testsuite} "
     command << "-Djavalanche=#{@javalanche_location} getMutationScores"
@@ -304,14 +404,14 @@ def create_javalanche_command
 end
 
 def find_and_set_classpath
+  puts "[LOG] Acquiring classpath of project by running ant/maven 'test' task"
   Dir.chdir(@project_location) do
-
     # Acquire classpath from 'ant test' or 'mvn test' command using a Regex
     if File.exists?("#{@project_location}build.xml")  # Ant build file
       output = `ant -v test`
       @classpath = output.scan(/-classpath'\s*\[junit\]\s*'(.*)'/)[0][0]
     elsif File.exists?("#{@project_location}pom.xml")  # Maven pom file
-      puts "TODO: Maven classpath extraction is not done yet"
+      puts "[TODO] Maven classpath extraction is not done yet"
       output = `mvn -X test`
       # @classpath = output.scan()[0][0]
     end
