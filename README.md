@@ -69,7 +69,11 @@ was developed on Linux and uses some Linux-only features.
 
 ## Method
 
-_TODO_
+1. Import project into Eclipse (ensure no errors)
+2. Enable the metrics reporting (within the project's properties in Eclipse)
+3. Run the rake task 'install' to install the necessary components
+4. Run the rake task 'setup_svm' to build up the support vector machine
+5. Run the rake task 'cross_validation' to test the cross validation accuracy
 
   [1]: http://www.ruby-lang.org/en/ "Ruby"
   [2]: http://www.python.org/ "Python"

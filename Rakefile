@@ -53,6 +53,13 @@ CLOBBER.include("./#{@javalanche}")
 CLOBBER.include("./eclipse_metrics_xml_reader")
 CLOBBER.include("./#{@libsvm}")
 CLEAN.include("./data")
+CLEAN.include("./#{@javalanche}")
+CLEAN.include("./eclipse_metrics_xml_reader")
+CLEAN.include("./#{@libsvm}")
+CLEAN.include("analyze.csv")
+CLEAN.include("javalanche.xml")
+CLEAN.include("Makefile")
+CLEAN.include("runMutations.sh")
 
 task :default => :list
 
@@ -64,6 +71,27 @@ task :list do
   puts "'eclipse' is required to use Eclipse Metrics plugin"
   puts "'python' and 'git' are required to use eclipse_metrics_xml_reader"
   puts "Project being used must be imported in Eclipse (with metrics enabled)"
+end
+
+# Cleans the project and any generated files from the execution
+task :clean => :clean_project do
+end
+
+# Cleans the project and all files not included in initial repository
+task :clobber => :clean_project do
+end
+
+# Calls the clean commands on the project, as well as removing produced files
+task :clean_project do
+  Dir.chdir("#{@project_location}") do
+    sh "#{create_javalanche_command("deleteResults")}"
+    sh "#{create_javalanche_command("deleteMutations")}"
+    sh "#{create_javalanche_command("cleanJavalanche")}"
+    rm_f("analyze.csv")
+    rm_f("javalanche.xml")
+    rm_f("Makefile")
+    rm_f("runMutations.sh")
+  end
 end
 
 desc "Install the necessary components for this project"
@@ -298,7 +326,7 @@ task :get_mutation_scores => [:install_javalanche, :setup_javalanche] do
   # Run javalanche
   Dir.chdir(@project_location) do
     puts "[LOG] Executing Javalanche command"
-    sh "#{create_javalanche_command}"
+    sh "#{create_javalanche_command("getMutationScores")}"
   end
 
   # Extract mutation scores from Javalanche
@@ -375,6 +403,11 @@ task :setup_javalanche do
   # Create the runMutations.sh script in the project directory
   content = "#!/bin/sh"
   content << "\nOUTPUTFILE=mutation-files/output-runMutation-${2}.txt"
+  content << "\nBACKOUTPUTFILE=mutation-files/back-output-${2}.txt"
+  content << "\nif [ -e $OUTPUTFILE ]"
+  content << "\nthen"
+  content << "\n        mv $OUTPUTFILE ${BACKOUTPUTFILE}"
+  content << "\nfi"
   content << "\nwhile  ! grep -q ALL_RESULTS ${OUTPUTFILE}"
   content << "\ndo"
   content << "\n        echo \"Task ${2} not completed - starting again\""
@@ -396,10 +429,10 @@ task :setup_javalanche do
   file.close
 end
 
-def create_javalanche_command  
+def create_javalanche_command(task)
     command = "ant -f javalanche.xml -Dprefix=#{@project_prefix} "
     command << "-Dcp=#{@classpath} -Dtestsuite=#{@project_testsuite} "
-    command << "-Djavalanche=#{@javalanche_location} getMutationScores"
+    command << "-Djavalanche=#{@javalanche_location} #{task}"
   return command
 end
 
