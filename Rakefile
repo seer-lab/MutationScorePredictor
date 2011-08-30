@@ -1,9 +1,13 @@
 begin
   require 'rake/clean'
-  require 'open-uri' 
+  require 'open-uri'
   require 'archive'
+  require 'nokogiri'
+  require './mutation_scorer.rb'
+  require './metric_libsvm_synthesizer.rb'
+  require './test_suite_method_metrics.rb'
 rescue LoadError
-  abort "Required gems missing. Try 'sudo gem install libarchive-ruby'."
+  abort "Gems missing. Try 'sudo gem install nokogiri libarchive-ruby'."
 end
 
 # This rakefile is used to set up the working environment for the mutation 
@@ -12,7 +16,7 @@ end
 # running the experiment.
 #
 # @author Kevin Jalbert
-# @version 0.4.0
+# @version 0.5.0
 
 # Project and environment variables (absolute paths) (user must/can modify)
 @eclipse = "/home/jalbert/Desktop/eclipse/"
@@ -26,7 +30,6 @@ end
 @java_memory = "-Xmx1g"
 @max_cores = "1"
 @python = "python2"  # Python 2.7 command
-@ruby = "ruby"  # Ruby command
 @rake = "rake"  # Rake command
 @classpath = nil  # Acquired through ant/maven extraction
 
@@ -47,15 +50,17 @@ end
 @libsvm_tar = "libsvm-3.1.tar.gz"
 @libsvm_download = "http://www.csie.ntu.edu.tw/~cjlin/libsvm/libsvm-3.1.tar.gz"
 @cross_validation_folds = 10
+@emma = "emma-2.0.5312"
+@emma_zip = "#{@emma}.zip"
+@emma_download = "http://sourceforge.net/projects/emma/files/emma-release/" \
+                 "2.0.5312/emma-2.0.5312.zip/download"
 
 # Files to remove via clobbering them
 CLOBBER.include("./#{@javalanche}")
 CLOBBER.include("./eclipse_metrics_xml_reader")
 CLOBBER.include("./#{@libsvm}")
+CLOBBER.include("./#{@emma}")
 CLEAN.include("./data")
-CLEAN.include("./#{@javalanche}")
-CLEAN.include("./eclipse_metrics_xml_reader")
-CLEAN.include("./#{@libsvm}")
 CLEAN.include("analyze.csv")
 CLEAN.include("javalanche.xml")
 CLEAN.include("Makefile")
@@ -67,9 +72,7 @@ task :default => :list
 task :list do
   sh "#{@rake} -T"
   puts "\nWork flow: 'install' -> 'setup_svm' -> 'cross_validation'"
-  puts "'ant' and 'mvn' are required to use Javalanche"
-  puts "'eclipse' is required to use Eclipse Metrics plugin"
-  puts "'python' and 'git' are required to use eclipse_metrics_xml_reader"
+  puts "Consult README.md for additional details and requirements"
   puts "Project being used must be imported in Eclipse (with metrics enabled)"
 end
 
@@ -96,8 +99,8 @@ end
 
 desc "Install the necessary components for this project"
 task :install => [:install_javalanche, :install_eclipse_metrics_xml_reader,
-                  :install_libsvm] do
-  puts "Necessary components are present and ready"
+                  :install_libsvm, :install_emma] do
+  puts "[LOG] Necessary components are present and ready"
 end
 
 # Install Javalanche
@@ -151,9 +154,10 @@ end
 
 # Install libsvm
 task :install_libsvm do
+
   # Perform install only if libsvm directory doesn't exist
   if not File.directory?(@libsvm)
-    
+
     # Download libsvm's tar file
     puts "[LOG] Directory #{@libsvm} does not exists"
     puts "[LOG] Downloading #{@libsvm_tar} (599.6 KB)"
@@ -169,53 +173,111 @@ task :install_libsvm do
     # Deleting libsvm's tar file
     puts "[LOG] Deleting #{@libsvm_tar}"
     rm @libsvm_tar
-
   else
     puts "[LOG] Directory #{@libsvm} already exists"
   end
 end
 
+# Install emma
+task :install_emma do
+
+  # Perform install only if emma directory doesn't exist
+  if not File.directory?(@emma)
+    
+    # Download emma's zip file
+    puts "[LOG] Directory #{@emma} does not exists"
+    puts "[LOG] Downloading #{@emma_zip} (675.8 KB)"
+    writeOut = open(@emma_zip, "wb")
+    writeOut.write(open(@emma_download).read)
+    writeOut.close
+
+    # Extract all files to the current directory
+    puts "[LOG] Extracting #{@emma_zip}"
+    a = Archive.new(@emma_zip)
+    a.extract
+
+    # Deleting emma's zip file
+    puts "[LOG] Deleting #{@emma_zip}"
+    rm @emma_zip
+  else
+    puts "[LOG] Directory #{@emma} already exists"
+  end
+end
+
 # Set up support vector machine using the mutation scores and metrics
 desc "Set up the support vector machine for training"
-task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm] do
-  
+task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
+                    :install_emma] do
+
+  # Set up the process to find the test suite method metrics
+  test_suite_method_metrics = TestSuiteMethodMetrics.new(@project_location,
+                             "./data/#{@project_name}_method.labels",
+                             "./data/#{@project_name}_method.libsvm")
+  tests_for_methods = test_suite_method_metrics.get_tests_for_methods(
+                        "#{@project_location}mutation-files/")
+
+  # Run emma for each method using the touched tests, to get coverage metrics
+  c = 1
+  Dir.chdir(@project_location) do
+
+    # Format tests from array to string with no methods
+    tests_for_methods.each do |method,tests|
+      testing = ""
+
+      # Filter the test methods to only test classes
+      test_classes = []
+      tests_for_methods[method].each do |test|
+        test_classes << test[0, test.rindex(".")]
+      end
+
+      # Build string of testing classes
+      test_classes.uniq.each do |test|
+        testing += test + " "
+      end
+      
+      emma = "-cp #{@home}/#{@emma}/lib/emma.jar emmarun -r xml"
+      opts = "-Dreport.sort=-method -Dverbosity.level=silent " \
+            "-Dreport.columns=name,line,block -Dreport.depth=method " \
+            "-Dreport.xml.out.file=coverage#{c}.xml -ix +#{@project_prefix}.* "
+      emma_command = "java #{emma} -cp #{@classpath} #{opts}"
+      sh "#{emma_command} org.junit.runner.JUnitCore #{testing}"
+      mv("coverage#{c}.xml", "#{@home}/data/")
+      c += 1
+    end
+  end
+
   # Add test metrics to the methods's metrics
   puts "[LOG] Adding testing metrics to method metrics"
-  sh "#{@ruby} " \
-     "./test_suite_method_metrics.rb #{@project_location} " \
-     "./data/#{@project_name}_method.labels " \
-     "./data/#{@project_name}_method.libsvm"
+  test_suite_method_metrics.process(tests_for_methods)
 
-  # Synthesis the libsvm and the mutation scores into known libsvm data
+  # Synthesize the libsvm and the mutation scores into known libsvm data
   puts "[LOG] Synthesizing metrics and mutation scores to a trainable libsvm"
-  sh "#{@ruby} metric_libsvm_synthesizer.rb " \
-     "./data/#{@project_name}_class.libsvm " \
-     "./data/#{@project_name}_class.labels " \
-     "./data/#{@project_name}_class_mutation.score"
-  sh "#{@ruby} metric_libsvm_synthesizer.rb " \
-     "./data/#{@project_name}_method.libsvm " \
-     "./data/#{@project_name}_method.labels " \
-     "./data/#{@project_name}_method_mutation.score"
+  MetricLibsvmSynthesizer.new("./data/#{@project_name}_class.libsvm",
+                              "./data/#{@project_name}_class.labels",
+                              "./data/#{@project_name}_class_mutation.score")
+                              .process
+  MetricLibsvmSynthesizer.new("./data/#{@project_name}_method.libsvm",
+                              "./data/#{@project_name}_method.labels",
+                              "./data/#{@project_name}_method_mutation.score")
+                              .process
 end
 
 # Perform cross validation of the project
 desc "Perform cross validation on the project"
 task :cross_validation  do
-
   Dir.chdir("#{@libsvm}") do
     puts "[LOG] Making libsvm"
     sh "make"
     Dir.chdir("tools") do
-
       puts "[LOG] Modifying grid.py to use #{@max_cores} cores and " \
            "#{@cross_validation_folds} folds"
+
+      # Modify the settings to use the specified cores and folds
       file = File.open("grid.py", 'r')
       content = file.read
-      file.close 
-
+      file.close
       content.gsub!("nr_local_worker = 1", "nr_local_worker = #{@max_cores}")
       content.gsub!("fold = 5", "fold = #{@cross_validation_folds}")
-
       file = File.open("grid.py", 'w')
       file.write(content)
       file.close
@@ -238,14 +300,8 @@ end
 
 # Executes the headless Eclipse Metrics plugin to acquire the metric XML file
 task :get_eclipse_metrics_xml => :setup_metrics_build_file do
-
-  # Make sure the Eclipse launcher exists
   if File.exists?(@eclipse_launcher)
-
-    # Make sure the Eclipse metrics plugin exists
     if File.directory?(@eclipse_metric_plugin)
-
-      # Make sure the eclipse project build file exists
       if File.exists?(@eclipse_project_build)
 
         # Execute the headless Eclipse command to export metrics of the project
@@ -260,7 +316,8 @@ task :get_eclipse_metrics_xml => :setup_metrics_build_file do
           puts "[LOG] Restoring project's original build file"
           FileUtils.rm(@eclipse_project_build)
           if File.exist?(@eclipse_project_build + ".backup")
-            FileUtils.mv(@eclipse_project_build + ".backup", @eclipse_project_build)
+            FileUtils.mv(@eclipse_project_build + ".backup",
+                         @eclipse_project_build)
           end
           puts "[LOG] If an error occurred make sure that the project was " \
                "successfully imported into Eclipse with no errors."
@@ -331,8 +388,7 @@ task :get_mutation_scores => [:install_javalanche, :setup_javalanche] do
 
   # Extract mutation scores from Javalanche
   puts "[LOG] Extracting mutation scores from Javalanche results"
-  sh "#{@ruby} mutation_scorer.rb #{@project_name} " \
-     "#{@project_location}analyze.csv"
+  MutationScorer.new(@project_name, "#{@project_location}analyze.csv").process
   mv("#{@project_name}_class_mutation.score", "./data/")
   mv("#{@project_name}_method_mutation.score", "./data/")
   mv("#{@project_name}_mutation.operators", "./data/")
@@ -348,7 +404,7 @@ task :setup_javalanche do
   # Read default javalanche.xml file in
   file = File.open("#{@javalanche}/javalanche.xml", 'r')
   content = file.read
-  file.close 
+  file.close
 
   # Make new target
   content.gsub!("</project>", "")
@@ -371,31 +427,23 @@ task :setup_javalanche do
   file.write(content)
   file.close
 
-  # Read log4j property file
+  # Adjust log4j reporting level from WARN to INFO (needed for later step)
+  puts "[LOG] Adjusting log4j's reporting level to INFO"
   file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'r')
   content = file.read
-  file.close 
-
-  # Adjust log4j reporting level from WARN to INFO (needed for later step)
+  file.close
   content.gsub!("log4j.rootCategory=WARN", "log4j.rootCategory=INFO")
-
-  # Overwrite the log4j file with the new content
-  puts "[LOG] Adjusting log4j's reporting level to INFO"
   file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'w')
   file.write(content)
   file.close
 
-  # Read hibernate.cfg property file
+  # Adjust hibernate.cfg idle test time (try to avoid possible deadlock error)
+  puts "[LOG] Adjusting hibernate.cfg idle test time to 300"
   file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'r')
   content = file.read
-  file.close 
-
-  # Adjust hibernate.cfg idle test time (try to avoid possible deadlock error)
-  content.gsub!("\"hibernate.c3p0.idle_test_period\">3000", 
+  file.close
+  content.gsub!("\"hibernate.c3p0.idle_test_period\">3000",
                 "\"hibernate.c3p0.idle_test_period\">300")
-
-  # Overwrite the hibernate.cfg file with the new content
-  puts "[LOG] Adjusting hibernate.cfg idle test time to 300"
   file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'w')
   file.write(content)
   file.close
@@ -416,7 +464,7 @@ task :setup_javalanche do
   content << "-Dtestsuite=#{@project_testsuite} " 
   content << "-Djavalanche=#{@javalanche_location} "
   content << "-Djavalanche.properties.add="
-  content << "-Djavalanche.stop.after.first.fail=false runMutationsCoverage " 
+  content << "-Djavalanche.stop.after.first.fail=false runMutationsCoverage "
   content << "${3} -Dmutation.file=${1}  2>&1 | tee -a $OUTPUTFILE"
   content << "\n        sleep 1"
   content << "\ndone"
