@@ -34,12 +34,8 @@ class TestSuiteMethodMetrics
         tests << test
       elsif line.include?("-  Disabling mutation:")
         # Save this mutation_id and tests, then reset the tests
-        tests_for_mutants[mutation_id] = tests
+        tests_for_mutants[mutation_id] = tests.sort
         tests = []
-      end    
-
-      if line.include?("-  Storing results for")
-        break;
       end
     end
     return tests_for_mutants
@@ -271,12 +267,12 @@ class TestSuiteMethodMetrics
                   "file (no labels extension)"
 
     # Write changes
-    puts "[LOG] Overwriting libsvm and labels file with new data from tests"
-    file = File.open(@labels_file, 'w')
+    puts "[LOG] Writing new libsvm and labels file with new data from tests"
+    file = File.open("#{@labels_file}_new", 'w')
     file.write(new_labels)
     file.close
 
-    file = File.open(@libsvm_file, 'w')
+    file = File.open("#{@libsvm_file}_new", 'w')
     file.write(new_libsvm)
     file.close
   end

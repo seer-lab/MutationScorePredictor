@@ -27,7 +27,7 @@ end
 @project_prefix = "org.joda.time"
 @project_testsuite = "org.joda.time.TestAll"
 @project_location = "#{@eclipse_workspace}#{@project_name}/"
-@java_memory = "-Xmx1g"
+@java_memory = "1500m"
 @max_cores = "1"
 @python = "python2"  # Python 2.7 command
 @rake = "rake"  # Rake command
@@ -37,7 +37,7 @@ end
 @home = Dir.pwd
 @eclipse_project_build = "#{@project_location}build.xml"
 @eclipse_metric_plugin = "#{@eclipse}plugins/" \
-                         "net.sourceforge.metrics_1.3.6"
+                         "net.sourceforge.metrics_1.3.8.20100730-001.jar"
 @eclipse_metrics_xml_reader_git = "git://github.com/kevinjalbert/" \
                                   "eclipse_metrics_xml_reader.git"
 @javalanche = "javalanche-0.3.6"
@@ -54,12 +54,16 @@ end
 @emma_zip = "#{@emma}.zip"
 @emma_download = "http://sourceforge.net/projects/emma/files/emma-release/" \
                  "2.0.5312/emma-2.0.5312.zip/download"
+@junit_download = "http://sourceforge.net/projects/junit/files/junit/4.8.1/" \
+                  "junit-4.8.1.jar/download"
+@junit_jar = "junit-4.8.1.jar"
 
 # Files to remove via clobbering them
 CLOBBER.include("./#{@javalanche}")
 CLOBBER.include("./eclipse_metrics_xml_reader")
 CLOBBER.include("./#{@libsvm}")
 CLOBBER.include("./#{@emma}")
+CLOBBER.include("./#{@junit_jar}")
 CLEAN.include("./data")
 CLEAN.include("analyze.csv")
 CLEAN.include("javalanche.xml")
@@ -87,9 +91,11 @@ end
 # Calls the clean commands on the project, as well as removing produced files
 task :clean_project do
   Dir.chdir("#{@project_location}") do
+    sh "#{create_javalanche_command("startHsql")}"
     sh "#{create_javalanche_command("deleteResults")}"
     sh "#{create_javalanche_command("deleteMutations")}"
     sh "#{create_javalanche_command("cleanJavalanche")}"
+    sh "#{create_javalanche_command("stopHsql")}"
     rm_f("analyze.csv")
     rm_f("javalanche.xml")
     rm_f("Makefile")
@@ -99,7 +105,7 @@ end
 
 desc "Install the necessary components for this project"
 task :install => [:install_javalanche, :install_eclipse_metrics_xml_reader,
-                  :install_libsvm, :install_emma] do
+                  :install_libsvm, :install_emma, :install_junit] do
   puts "[LOG] Necessary components are present and ready"
 end
 
@@ -204,6 +210,23 @@ task :install_emma do
   end
 end
 
+# Install junit jar
+task :install_junit do
+
+  # Perform install only if junit jar doesn't exist
+  if not File.exists?(@junit_jar)
+
+    # Download junit's jar file
+    puts "[LOG] File #{@junit_jar} does not exists"
+    puts "[LOG] Downloading #{@junit_jar} (231.5 KB)"
+    writeOut = open(@junit_jar, "wb")
+    writeOut.write(open(@junit_download).read)
+    writeOut.close
+  else
+    puts "[LOG] File #{@junit_jar} already exists"
+  end
+end
+
 # Set up support vector machine using the mutation scores and metrics
 desc "Set up the support vector machine for training"
 task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
@@ -218,6 +241,7 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
 
   # Run emma for each method using the touched tests, to get coverage metrics
   c = 1
+  done = Hash.new
   Dir.chdir(@project_location) do
 
     # Format tests from array to string with no methods
@@ -234,14 +258,23 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
       test_classes.uniq.each do |test|
         testing += test + " "
       end
-      
-      emma = "-cp #{@home}/#{@emma}/lib/emma.jar emmarun -r xml"
-      opts = "-Dreport.sort=-method -Dverbosity.level=silent " \
-            "-Dreport.columns=name,line,block -Dreport.depth=method " \
-            "-Dreport.xml.out.file=coverage#{c}.xml -ix +#{@project_prefix}.* "
-      emma_command = "java #{emma} -cp #{@classpath} #{opts}"
-      sh "#{emma_command} org.junit.runner.JUnitCore #{testing}"
-      mv("coverage#{c}.xml", "#{@home}/data/")
+
+      # Only execute the coverage test if it hasn't already been executed
+      if done.has_key?(testing)
+        puts "[LOG] Test coverage already executed, copying old results"
+        cp("#{@home}/data/#{done[testing]}", "#{@home}/data/coverage#{c}.xml")
+      else
+        done[testing] = "coverage#{c}.xml"
+        emma = "-cp #{@home}/#{@emma}/lib/emma.jar emmarun -r xml"
+        opts = "-Dreport.sort=-method -Dverbosity.level=silent " \
+              "-Dreport.columns=name,line,block -Dreport.depth=method " \
+              "-Dreport.xml.out.file=coverage#{c}.xml " \
+              "-ix +#{@project_prefix}.* "
+        command = "java -Xmx#{@java_memory} #{emma} -cp #{@classpath}:" \
+                  "#{@home}/#{@junit_jar} #{opts}"
+        sh "#{command} org.junit.runner.JUnitCore #{testing}"
+        mv("coverage#{c}.xml", "#{@home}/data/")
+      end
       c += 1
     end
   end
@@ -256,8 +289,8 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
                               "./data/#{@project_name}_class.labels",
                               "./data/#{@project_name}_class_mutation.score")
                               .process
-  MetricLibsvmSynthesizer.new("./data/#{@project_name}_method.libsvm",
-                              "./data/#{@project_name}_method.labels",
+  MetricLibsvmSynthesizer.new("./data/#{@project_name}_method.libsvm_new",
+                              "./data/#{@project_name}_method.labels_new",
                               "./data/#{@project_name}_method_mutation.score")
                               .process
 end
@@ -283,8 +316,10 @@ task :cross_validation  do
       file.close
 
       puts "[LOG] Performing cross validation"
-      sh "#{@python} easy.py ./../../data/#{@project_name}_class.libsvm_synth"
-      sh "#{@python} easy.py ./../../data/#{@project_name}_method.libsvm_synth"
+      sh "#{@python} easy.py " \
+         "./../../data/#{@project_name}_class.libsvm_synth"
+      sh "#{@python} easy.py " \
+         "./../../data/#{@project_name}_method.libsvm_new_synth"
     end
   end
 end
@@ -301,14 +336,14 @@ end
 # Executes the headless Eclipse Metrics plugin to acquire the metric XML file
 task :get_eclipse_metrics_xml => :setup_metrics_build_file do
   if File.exists?(@eclipse_launcher)
-    if File.directory?(@eclipse_metric_plugin)
+    if File.exists?(@eclipse_metric_plugin)
       if File.exists?(@eclipse_project_build)
 
         # Execute the headless Eclipse command to export metrics of the project
         puts "[LOG] Executing headless Eclipse Metrics plugin report export"
-        
+
         begin
-          sh "java #{@java_memory} -jar #{@eclipse_launcher} -noupdate " \
+          sh "java -Xmx#{@java_memory} -jar #{@eclipse_launcher} -noupdate " \
              "-application org.eclipse.ant.core.antRunner -data " \
              "#{@eclipse_workspace} -file #{@eclipse_project_build}"
         rescue Exception=>e
@@ -459,10 +494,11 @@ task :setup_javalanche do
   content << "\nwhile  ! grep -q ALL_RESULTS ${OUTPUTFILE}"
   content << "\ndo"
   content << "\n        echo \"Task ${2} not completed - starting again\""
-  content << "\n        nice -10 ant -f javalanche.xml " 
-  content << "-Dprefix=#{@project_prefix} -Dcp=#{@classpath} " 
-  content << "-Dtestsuite=#{@project_testsuite} " 
+  content << "\n        nice -10 ant -f javalanche.xml "
+  content << "-Dprefix=#{@project_prefix} -Dcp=#{@classpath} "
+  content << "-Dtestsuite=#{@project_testsuite} "
   content << "-Djavalanche=#{@javalanche_location} "
+  content << "-Djavalanche.maxmemory=#{@java_memory} "
   content << "-Djavalanche.properties.add="
   content << "-Djavalanche.stop.after.first.fail=false runMutationsCoverage "
   content << "${3} -Dmutation.file=${1}  2>&1 | tee -a $OUTPUTFILE"
@@ -480,6 +516,7 @@ end
 def create_javalanche_command(task)
     command = "ant -f javalanche.xml -Dprefix=#{@project_prefix} "
     command << "-Dcp=#{@classpath} -Dtestsuite=#{@project_testsuite} "
+    command << "-Djavalanche.maxmemory=#{@java_memory} "
     command << "-Djavalanche=#{@javalanche_location} #{task}"
   return command
 end
