@@ -27,8 +27,9 @@ end
 @project_prefix = "org.joda.time"
 @project_testsuite = "org.joda.time.TestAll"
 @project_location = "#{@eclipse_workspace}#{@project_name}/"
-@java_memory = "1500m"
-@max_cores = "1"
+@max_memory = "3000"  # In megabytes (the max avalible memory)
+@memory_for_tests = "1500"  # In megabytes (memory needed for the test suite)
+@max_cores = "2"
 @python = "python2"  # Python 2.7 command
 @rake = "rake"  # Rake command
 @classpath = nil  # Acquired through ant/maven extraction
@@ -270,7 +271,7 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
               "-Dreport.columns=name,line,block -Dreport.depth=method " \
               "-Dreport.xml.out.file=coverage#{c}.xml " \
               "-ix +#{@project_prefix}.* "
-        command = "java -Xmx#{@java_memory} #{emma} -cp #{@classpath}:" \
+        command = "java -Xmx#{@max_memory}m #{emma} -cp #{@classpath}:" \
                   "#{@home}/#{@junit_jar} #{opts}"
         sh "#{command} org.junit.runner.JUnitCore #{testing}"
         mv("coverage#{c}.xml", "#{@home}/data/")
@@ -293,6 +294,12 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
                               "./data/#{@project_name}_method.labels_new",
                               "./data/#{@project_name}_method_mutation.score")
                               .process
+
+  # Recap on the memory and cores used
+  puts "Resources Summary:"
+  puts "  Used #{number_of_tasks} tasks for mutation testing"
+  puts "  Used #{@memory_for_tests}m memory for mutation testing tasks"
+  puts "  Used #{@max_memory}m memory for Emma coverage"
 end
 
 # Perform cross validation of the project
@@ -343,7 +350,7 @@ task :get_eclipse_metrics_xml => :setup_metrics_build_file do
         puts "[LOG] Executing headless Eclipse Metrics plugin report export"
 
         begin
-          sh "java -Xmx#{@java_memory} -jar #{@eclipse_launcher} -noupdate " \
+          sh "java -Xmx#{@max_memory}m -jar #{@eclipse_launcher} -noupdate " \
              "-application org.eclipse.ant.core.antRunner -data " \
              "#{@eclipse_workspace} -file #{@eclipse_project_build}"
         rescue Exception=>e
@@ -447,7 +454,7 @@ task :setup_javalanche do
   content << "schemaexport,scanProject,scan,createTasks,createCoverageData,"
   content << "createMutationMakefile\">"
   content << "\n        <exec executable=\"make\" spawn=\"false\">"
-  content << "\n            <arg value=\"-j#{@max_cores}\"/>"
+  content << "\n            <arg value=\"-j#{number_of_tasks}\"/>"
   content << "\n        </exec>"
   content << "\n        <property name=\"javalanche.mutation.analyzers\" value"
   content << "=\"de.unisb.cs.st.javalanche.coverage.CoverageAnalyzer\" />"
@@ -498,7 +505,7 @@ task :setup_javalanche do
   content << "-Dprefix=#{@project_prefix} -Dcp=#{@classpath} "
   content << "-Dtestsuite=#{@project_testsuite} "
   content << "-Djavalanche=#{@javalanche_location} "
-  content << "-Djavalanche.maxmemory=#{@java_memory} "
+  content << "-Djavalanche.maxmemory=#{@memory_for_tests}m "
   content << "-Djavalanche.properties.add="
   content << "-Djavalanche.stop.after.first.fail=false runMutationsCoverage "
   content << "${3} -Dmutation.file=${1}  2>&1 | tee -a $OUTPUTFILE"
@@ -516,7 +523,7 @@ end
 def create_javalanche_command(task)
     command = "ant -f javalanche.xml -Dprefix=#{@project_prefix} "
     command << "-Dcp=#{@classpath} -Dtestsuite=#{@project_testsuite} "
-    command << "-Djavalanche.maxmemory=#{@java_memory} "
+    command << "-Djavalanche.maxmemory=#{@max_memory}m "
     command << "-Djavalanche=#{@javalanche_location} #{task}"
   return command
 end
@@ -534,4 +541,22 @@ def find_and_set_classpath
       # @classpath = output.scan()[0][0]
     end
   end
+end
+
+def number_of_tasks
+
+  # Make sure there exists enough memory for the tests to complete
+  if @memory_for_tests.to_i > @max_memory.to_i
+    raise("[ERROR] Not enough memory to execute test suite successfully")
+  end
+ 
+  # Figure out the number of task that can be ran reliably given the max memory
+  task = @max_memory.to_i / @memory_for_tests.to_i
+
+  # Ensure that the number of tasks is less then the number of cores avalible 
+  if task > @max_cores.to_i
+    task = @max_cores.to_i
+  end
+
+  return task.to_s
 end
