@@ -2,11 +2,11 @@ require 'csv'
 
 class MetricLibsvmSynthesizer
 
-  attr_reader = :libsvm_file, :lables_file, :scores_file
+  attr_reader = :libsvm_file, :labels_file, :scores_file
 
-  def initialize(libsvm_file, lables_file, scores_file)
+  def initialize(libsvm_file, labels_file, scores_file)
     @libsvm_file = libsvm_file
-    @lables_file = lables_file
+    @labels_file = labels_file
     @scores_file = scores_file
   end
 
@@ -74,7 +74,7 @@ class MetricLibsvmSynthesizer
 
     # Acquire the files content
     old_libsvm = File.read(@libsvm_file)
-    labels = File.read(@lables_file)
+    labels = File.read(@labels_file)
 
     # Acquire the unit_name => score values
     unit_score = get_unit_scores(@scores_file)
@@ -90,7 +90,7 @@ class MetricLibsvmSynthesizer
     file.write(new_libsvm)
     file.close
 
-    file = File.open("#{@lables_file}_synth", 'w')
+    file = File.open("#{@labels_file}_synth", 'w')
     file.write(new_labels)
     file.close
   end
