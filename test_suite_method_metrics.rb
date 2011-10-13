@@ -133,7 +133,7 @@ class TestSuiteMethodMetrics
       tests.each do |test|
 
         # Get test's method metrics from libsvm
-        if line_mapping[test] == nil
+        if line_mapping[test] == nil || libsvm[line_mapping[test]] == nil
           # Test methods are not found due to the overloading naming convention
           puts "test: " + test + " not found for method " + method
         else
