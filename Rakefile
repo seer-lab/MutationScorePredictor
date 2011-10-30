@@ -6,6 +6,7 @@ begin
   require './mutation_scorer.rb'
   require './metric_libsvm_synthesizer.rb'
   require './test_suite_method_metrics.rb'
+  require './class_metric_accumulator.rb'
 rescue LoadError
   abort "Gems missing. Try 'sudo gem install nokogiri libarchive-ruby'."
 end
@@ -16,7 +17,7 @@ end
 # running the experiment.
 #
 # @author Kevin Jalbert
-# @version 0.5.0
+# @version 0.6.0
 
 # Project and environment variables (absolute paths) (user must/can modify)
 @eclipse = "/home/jalbert/Desktop/eclipse/"
@@ -27,9 +28,9 @@ end
 @project_prefix = "org.joda.time"
 @project_testsuite = "org.joda.time.TestAll"
 @project_location = "#{@eclipse_workspace}#{@project_name}/"
-@max_memory = "3000"  # In megabytes (the max avalible memory)
-@memory_for_tests = "1500"  # In megabytes (memory needed for the test suite)
-@max_cores = "2"
+@max_memory = "3500"  # In megabytes (the max avalible memory)
+@memory_for_tests = "1750"  # In megabytes (the memory needed for the test suite)
+@max_cores = "4"
 @python = "python2"  # Python 2.7 command
 @rake = "rake"  # Rake command
 @classpath = nil  # Acquired through ant/maven extraction
@@ -284,19 +285,24 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
   puts "[LOG] Adding testing metrics to method metrics"
   test_suite_method_metrics.process(tests_for_methods)
 
+  # Accumulating metrics from methods into the classes
+  puts "[LOG] Accumulating metrics from methods into classes"
+  ClassMetricAccumulator.new("./data/#{@project_name}_method.libsvm_new",
+                           "./data/#{@project_name}_method.labels_new",
+                           "./data/#{@project_name}_class.libsvm",
+                           "./data/#{@project_name}_class.labels").process
+
   # Synthesize the libsvm and the mutation scores into known libsvm data
   puts "[LOG] Synthesizing metrics and mutation scores to a trainable libsvm"
-  MetricLibsvmSynthesizer.new("./data/#{@project_name}_class.libsvm",
-                              "./data/#{@project_name}_class.labels",
-                              "./data/#{@project_name}_class_mutation.score")
-                              .process
+  MetricLibsvmSynthesizer.new("./data/#{@project_name}_class.libsvm_new",
+                              "./data/#{@project_name}_class.labels_new",
+                              "./data/#{@project_name}_class_mutation.score").process
   MetricLibsvmSynthesizer.new("./data/#{@project_name}_method.libsvm_new",
                               "./data/#{@project_name}_method.labels_new",
-                              "./data/#{@project_name}_method_mutation.score")
-                              .process
+                              "./data/#{@project_name}_method_mutation.score").process
 
   # Recap on the memory and cores used
-  puts "Resources Summary:"
+  puts "Resource Summary:"
   puts "  Used #{number_of_tasks} tasks for mutation testing"
   puts "  Used #{@memory_for_tests}m memory for mutation testing tasks"
   puts "  Used #{@max_memory}m memory for Emma coverage"
@@ -324,7 +330,7 @@ task :cross_validation  do
 
       puts "[LOG] Performing cross validation"
       sh "#{@python} easy.py " \
-         "./../../data/#{@project_name}_class.libsvm_synth"
+         "./../../data/#{@project_name}_class.libsvm_new_synth"
       sh "#{@python} easy.py " \
          "./../../data/#{@project_name}_method.libsvm_new_synth"
     end
