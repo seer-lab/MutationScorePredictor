@@ -35,6 +35,12 @@ end
 @rake = "rake"  # Rake command
 @classpath = nil  # Acquired through ant/maven extraction
 
+# Variables related to Javalanche's database usage
+@use_mysql = true
+@mysql_database = "mutation_test"
+@mysql_user = "root"
+@mysql_password = "root"
+
 # Variables related to setup and execution
 @home = Dir.pwd
 @eclipse_project_build = "#{@project_location}build.xml"
@@ -93,15 +99,23 @@ end
 # Calls the clean commands on the project, as well as removing produced files
 task :clean_project do
   Dir.chdir("#{@project_location}") do
-    sh "#{create_javalanche_command("startHsql")}"
-    sh "#{create_javalanche_command("deleteResults")}"
-    sh "#{create_javalanche_command("deleteMutations")}"
-    sh "#{create_javalanche_command("cleanJavalanche")}"
-    sh "#{create_javalanche_command("stopHsql")}"
-    rm_f("analyze.csv")
-    rm_f("javalanche.xml")
-    rm_f("Makefile")
-    rm_f("runMutations.sh")
+    
+    # Only clean Javalanche if the javalanche.xml is in the project directory
+    if File.exists?("javalanche.xml")
+      if @use_mysql 
+        sh "#{create_javalanche_command("startHsql")}"
+      end
+      sh "#{create_javalanche_command("deleteResults")}"
+      sh "#{create_javalanche_command("deleteMutations")}"
+      sh "#{create_javalanche_command("cleanJavalanche")}"
+      if @use_mysql
+        sh "#{create_javalanche_command("stopHsql")}"
+      end
+    end
+      rm_f("analyze.csv")
+      rm_f("javalanche.xml")
+      rm_f("Makefile")
+      rm_f("runMutations.sh")
   end
 end
 
@@ -128,6 +142,42 @@ task :install_javalanche do
     puts "[LOG] Extracting #{@javalanche_tar}"
     a = Archive.new(@javalanche_tar)
     a.extract
+
+    # Adjust log4j reporting level from WARN to INFO (needed for later step)
+    puts "[LOG] Adjusting log4j's reporting level to INFO"
+    file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'r')
+    content = file.read
+    file.close
+    content.gsub!("log4j.rootCategory=WARN", "log4j.rootCategory=INFO")
+    file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'w')
+    file.write(content)
+    file.close
+
+    # Adjust hibernate.cfg idle test time (try to avoid possible deadlock error)
+    puts "[LOG] Adjusting hibernate.cfg idle test time to 300"
+    file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'r')
+    content = file.read
+    file.close
+    content.sub!("\"hibernate.c3p0.idle_test_period\">3000",
+                 "\"hibernate.c3p0.idle_test_period\">300")
+
+    # Configure the usage of Javalanche's database
+    if @use_mysql
+      puts "[LOG] Adjusting hibernate.cfg to use MySQL instead of HSQLDB"
+      content.sub!("<!--", "")
+      content.sub!("-->", "<!--")
+      content.sub!("<property name=\"hibernate.jdbc.batch_size\">1</property>",
+                   "<property name=\"hibernate.jdbc.batch_size\">1</property>-->")
+      content.sub!("jdbc:mysql://localhost:3308/mutation_test",
+                   "jdbc:mysql://localhost:3306/#{@mysql_database}")
+      content.sub!("<property name=\"hibernate.connection.username\">mutation",
+                   "<property name=\"hibernate.connection.username\">#{@mysql_user}")
+      content.sub!("<property name=\"hibernate.connection.password\">mu",
+                   "<property name=\"hibernate.connection.password\">#{@mysql_password}")
+    end
+    file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'w')
+    file.write(content)
+    file.close
 
     # Deleting Javalanche's tar file
     puts "[LOG] Deleting #{@javalanche_tar}"
@@ -456,7 +506,10 @@ task :setup_javalanche do
 
   # Make new target
   content.gsub!("</project>", "")
-  content << "    <target name=\"getMutationScores\" depends=\"startHsql,"
+  content << "    <target name=\"getMutationScores\" depends=\""
+  if !@use_mysql
+    content << "startHsql,"
+  end
   content << "schemaexport,scanProject,scan,createTasks,createCoverageData,"
   content << "createMutationMakefile\">"
   content << "\n        <exec executable=\"make\" spawn=\"false\">"
@@ -465,34 +518,15 @@ task :setup_javalanche do
   content << "\n        <property name=\"javalanche.mutation.analyzers\" value"
   content << "=\"de.unisb.cs.st.javalanche.coverage.CoverageAnalyzer\" />"
   content << "\n        <antcall target=\"analyzeResults\" />"
-  content << "\n        <antcall target=\"stopHsql\" />"
+  if !@use_mysql
+    content << "\n        <antcall target=\"stopHsql\" />"
+  end
   content << "\n     </target>"
   content << "\n</project>"
 
   # Write new target to javalanche.xml within project directory
   puts "[LOG] Created new javalanche.xml file in project directory"
   file = File.open("#{@project_location}javalanche.xml", 'w')
-  file.write(content)
-  file.close
-
-  # Adjust log4j reporting level from WARN to INFO (needed for later step)
-  puts "[LOG] Adjusting log4j's reporting level to INFO"
-  file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'r')
-  content = file.read
-  file.close
-  content.gsub!("log4j.rootCategory=WARN", "log4j.rootCategory=INFO")
-  file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'w')
-  file.write(content)
-  file.close
-
-  # Adjust hibernate.cfg idle test time (try to avoid possible deadlock error)
-  puts "[LOG] Adjusting hibernate.cfg idle test time to 300"
-  file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'r')
-  content = file.read
-  file.close
-  content.gsub!("\"hibernate.c3p0.idle_test_period\">3000",
-                "\"hibernate.c3p0.idle_test_period\">300")
-  file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'w')
   file.write(content)
   file.close
 
