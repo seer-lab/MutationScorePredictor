@@ -106,7 +106,7 @@ class ClassMetricAccumulator
                          class_labels)
 
     index = 0
-    regex = /:(\d[\.\d]*)/  # Finds the values in a libsvm file
+    regex = /:(\d+[\.\d]*)/  # Finds the values in a libsvm file
     class_metrics = Hash.new  # class => array of metrics
     class_counter = Hash.new  # class => number of encounters
 

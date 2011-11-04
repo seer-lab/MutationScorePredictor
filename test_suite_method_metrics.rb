@@ -4,6 +4,10 @@ require 'nokogiri'
 class MethodCoverage
   attr_accessor :package_name, :source_name, :class_name, :method_name,
                 :line_covered, :line_total, :block_covered, :block_total
+
+  def unit_name()
+    return "#{@package_name}.#{class_name}.#{method_name}"
+  end
 end
 
 class TestSuiteMethodMetrics
@@ -114,7 +118,11 @@ class TestSuiteMethodMetrics
   end
 
   def get_avg(metric)
-    return get_sum(metric).to_f / metric.size
+    if metric.size == 0
+      return 0
+    else
+      return get_sum(metric).to_f / metric.size
+    end
   end
 
   def add_test_metrics(tests_for_methods, line_mapping, labels, libsvm,
@@ -134,8 +142,8 @@ class TestSuiteMethodMetrics
 
         # Get test's method metrics from libsvm
         if line_mapping[test] == nil || libsvm[line_mapping[test]] == nil
-          # Test methods are not found due to the overloading naming convention
-          puts "test: " + test + " not found for method " + method
+          # An abstract test method was encountered 
+          puts "[WARNING] Ignoring encountered abstract test case #{test}"
         else
           # Extract metrics for the libsvm line
           regex = /1:(\d+) 2:(\d+) 3:(\d+) 4:(\d+)/
@@ -170,7 +178,7 @@ class TestSuiteMethodMetrics
         # Append new feature to libsvm line for the method
         if line_mapping[method] == nil
           # Test methods are not found due to the overloading naming convention
-          #puts "test: " + test + " not found for method" + method
+          puts "[WARNING] Ignoring overloaded/anonymous method #{method}"
         else
           # Add features to new libsvm file, and the method to the labels file
           new_labels += "#{method}\n"
@@ -208,32 +216,29 @@ class TestSuiteMethodMetrics
         coverage.package_name = package_name
         coverage.source_name = srcfile_name
         coverage.class_name = class_name
-        coverage.method_name = method_name
+        coverage.method_name = method_name.scan(/(\w+)/)[0][0]
 
-        # Acquire coverage
-        method_node.children.each do |coverage_node|
-          
-          if coverage_node.attr("type") != nil and
-              coverage_node.attr("value") != nil
-            type = coverage_node.attr("type").scan(/(line|block)/)[0][0]
-            values = coverage_node.attr("value").scan(/(\.?\d+\.?\d*)/)
-            covered = values[1][0].to_f
-            total = values[2][0].to_f
+        # Acquire coverage only if the method of the coverage file
+        if coverage.unit_name == method
+          method_node.children.each do |coverage_node|
+            
+            if coverage_node.attr("type") != nil and
+                coverage_node.attr("value") != nil
+              type = coverage_node.attr("type").scan(/(line|block)/)[0][0]
+              values = coverage_node.attr("value").scan(/(\.?\d+\.?\d*)/)
+              covered = values[1][0].to_f
+              total = values[2][0].to_f
 
-            if type == "line"
-              coverage.line_covered = covered
-              coverage.line_total = total
-            else
-              coverage.block_covered = covered
-              coverage.block_total = total
+              if type == "line"
+                coverage.line_covered = covered
+                coverage.line_total = total
+              else
+                coverage.block_covered = covered
+                coverage.block_total = total
+              end
             end
-          end
 
-          # Acquire coverage only if the method of the coverage file
-          unit_name = "#{coverage.package_name}.#{coverage.class_name}."
-          unit_name += coverage.method_name.scan(/(\w+)/)[0][0]
-          if unit_name == method
-            method_coverage[method] = coverage
+          method_coverage[method] = coverage
           end
         end
       end

@@ -316,7 +316,6 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
         puts "[LOG] Test coverage already executed, copying old results"
         cp("#{@home}/data/#{done[testing]}", "#{@home}/data/coverage#{c}.xml")
       else
-        done[testing] = "coverage#{c}.xml"
         emma = "-cp #{@home}/#{@emma}/lib/emma.jar emmarun -r xml"
         opts = "-Dreport.sort=-method -Dverbosity.level=silent " \
               "-Dreport.columns=name,line,block -Dreport.depth=method " \
@@ -324,8 +323,17 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
               "-ix +#{@project_prefix}.* "
         command = "java -Xmx#{@max_memory}m #{emma} -cp #{@classpath}:" \
                   "#{@home}/#{@junit_jar} #{opts}"
-        sh "#{command} org.junit.runner.JUnitCore #{testing}"
-        mv("coverage#{c}.xml", "#{@home}/data/")
+        begin
+          # Ensure that only test cases with no errors are stored
+          system "#{command} org.junit.runner.JUnitCore #{testing}"
+          mv("coverage#{c}.xml", "#{@home}/data/")
+          done[testing] = "coverage#{c}.xml"
+        rescue Exception=>e
+          puts "[ERROR] With Emma JUnit testing (possible abstract test case)"
+          file = File.open("#{@home}/data/coverage#{c}.xml", 'w')
+          file.write("")
+          file.close
+        end
       end
       c += 1
     end
