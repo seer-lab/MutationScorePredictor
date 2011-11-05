@@ -30,6 +30,7 @@ end
 @project_location = "#{@eclipse_workspace}#{@project_name}/"
 @max_memory = "3500"  # In megabytes (the max avalible memory)
 @memory_for_tests = "1750"  # In megabytes (the memory needed for the test suite)
+@project_test_directory = "#{@project_location}src/test/"  # Then prefix occurs
 @max_cores = "4"
 @python = "python2"  # Python 2.7 command
 @rake = "rake"  # Rake command
@@ -306,8 +307,19 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
         test_classes << test[0, test.rindex(".")]
       end
 
-      # Build string of testing classes
+      # Build string of testing concrete tests, while ignoring abstract tests
       test_classes.uniq.each do |test|
+        
+        # Acquire the actual file path of the test
+        file = "#{@project_test_directory}#{test.gsub(".",File::Separator)}.java"
+
+        # Seems that tests with the '$' still works via a system call (it will
+        #   actually ignore everything after the '$' till the '.')
+        # Check to see if the file is an abstract class, we'll ignore these
+        if system("egrep abstract\\\s+class #{file}")
+          puts "[INFO] Ignoring abstract test case #{test}"
+          next
+        end
         testing += test + " "
       end
 
@@ -323,17 +335,27 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
               "-ix +#{@project_prefix}.* "
         command = "java -Xmx#{@max_memory}m #{emma} -cp #{@classpath}:" \
                   "#{@home}/#{@junit_jar} #{opts}"
-        begin
-          # Ensure that only test cases with no errors are stored
-          system "#{command} org.junit.runner.JUnitCore #{testing}"
-          mv("coverage#{c}.xml", "#{@home}/data/")
-          done[testing] = "coverage#{c}.xml"
-        rescue Exception=>e
-          puts "[ERROR] With Emma JUnit testing (possible abstract test case)"
+                
+        # Store the output of the JUnit tests
+        output = `#{command} org.junit.runner.JUnitCore #{testing}`
+
+        # Handle output, it might have errors, nothing or results
+        if output.include?("FAILURES!!!")
+          puts "[ERROR] With Emma JUnit testing"
           file = File.open("#{@home}/data/coverage#{c}.xml", 'w')
           file.write("")
           file.close
+        elsif testing == ""
+          puts "[WARNING] No valid test cases to use with Emma"
+          file = File.open("#{@home}/data/coverage#{c}.xml", 'w')
+          file.write("")
+          file.close
+        else
+          mv("coverage#{c}.xml", "#{@home}/data/")
         end
+
+        # Store this test coverage to reduce number of executions
+        done[testing] = "coverage#{c}.xml"
       end
       c += 1
     end
