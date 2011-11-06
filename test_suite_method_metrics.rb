@@ -133,6 +133,18 @@ class TestSuiteMethodMetrics
     # For a method get a list of metrics from each test's methods
     tests_for_methods.each do |method,tests|
 
+      # Check if method has coverage
+      if method_coverage[method] == nil
+        puts "No coverage for method " + method
+        next
+      end
+
+      # Check if method metrics exists
+      if line_mapping[method] == nil
+        puts "[WARNING] Ignoring overloaded/anonymous method #{method}"
+        next
+      end
+
       # For each test in this method gather the metrics
       id_MLOC = []
       id_NBD = []
@@ -142,10 +154,10 @@ class TestSuiteMethodMetrics
 
         # Get test's method metrics from libsvm
         if line_mapping[test] == nil || libsvm[line_mapping[test]] == nil
-          # An abstract test method was encountered 
+          # We don't have test metircs of test, an abstract test method 
           puts "[WARNING] Ignoring encountered abstract test case #{test}"
         else
-          # Extract metrics for the libsvm line
+          # Extract metrics of test for the libsvm line
           regex = /1:(\d+) 2:(\d+) 3:(\d+) 4:(\d+)/
           metrics = libsvm[line_mapping[test]].scan(regex)
           id_MLOC << metrics[0][0].to_i
@@ -155,36 +167,27 @@ class TestSuiteMethodMetrics
         end
       end
 
-      if method_coverage[method] == nil
-        puts "No coverage for method " + method
-      else
-        line_score = method_coverage[method].line_covered /
-                     method_coverage[method].line_total * 100
-        block_score = method_coverage[method].block_covered /
-                     method_coverage[method].block_total * 100
-        # Construct new features
-        features = "5:#{tests.size}" \
-                   " 6:#{get_sum(id_MLOC)} 7:#{get_avg(id_MLOC)}" \
-                   " 8:#{get_sum(id_NBD)} 9:#{get_avg(id_NBD)}" \
-                   " 10:#{get_sum(id_VG)} 11:#{get_avg(id_VG)}" \
-                   " 12:#{get_sum(id_PAR)} 13:#{get_avg(id_PAR)}" \
-                   " 14:#{method_coverage[method].line_covered}" \
-                   " 15:#{method_coverage[method].line_total}" \
-                   " 16:#{line_score}" \
-                   " 17:#{method_coverage[method].block_covered}" \
-                   " 18:#{method_coverage[method].block_total}" \
-                   " 19:#{block_score}"
+      line_score = method_coverage[method].line_covered /
+                   method_coverage[method].line_total * 100
+      block_score = method_coverage[method].block_covered /
+                   method_coverage[method].block_total * 100
 
-        # Append new feature to libsvm line for the method
-        if line_mapping[method] == nil
-          # Test methods are not found due to the overloading naming convention
-          puts "[WARNING] Ignoring overloaded/anonymous method #{method}"
-        else
-          # Add features to new libsvm file, and the method to the labels file
-          new_labels += "#{method}\n"
-          new_libsvm += "#{libsvm[line_mapping[method]]} #{features}\n"
-        end
-      end
+      # Construct new features
+      features = "5:#{tests.size}" \
+                 " 6:#{get_sum(id_MLOC)} 7:#{get_avg(id_MLOC)}" \
+                 " 8:#{get_sum(id_NBD)} 9:#{get_avg(id_NBD)}" \
+                 " 10:#{get_sum(id_VG)} 11:#{get_avg(id_VG)}" \
+                 " 12:#{get_sum(id_PAR)} 13:#{get_avg(id_PAR)}" \
+                 " 14:#{method_coverage[method].line_covered}" \
+                 " 15:#{method_coverage[method].line_total}" \
+                 " 16:#{line_score}" \
+                 " 17:#{method_coverage[method].block_covered}" \
+                 " 18:#{method_coverage[method].block_total}" \
+                 " 19:#{block_score}"
+
+      # Add features to new libsvm file, and the method to the labels file
+      new_labels += "#{method}\n"
+      new_libsvm += "#{libsvm[line_mapping[method]]} #{features}\n"
     end
     return new_labels, new_libsvm
   end
