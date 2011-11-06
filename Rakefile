@@ -55,9 +55,9 @@ end
                        "javalanche/builds/#{@javalanche_tar}"
 @javalanche_location = "#{@home}/#{@javalanche}"
 @javalanche_project_file = "#{@project_location}javalanche.xml"
-@libsvm = "libsvm-3.1"
-@libsvm_tar = "libsvm-3.1.tar.gz"
-@libsvm_download = "http://www.csie.ntu.edu.tw/~cjlin/libsvm/libsvm-3.1.tar.gz"
+@libsvm = "libsvm-3.11"
+@libsvm_tar = "libsvm-3.11.tar.gz"
+@libsvm_download = "http://www.csie.ntu.edu.tw/~cjlin/libsvm/libsvm-3.11.tar.gz"
 @cross_validation_folds = 10
 @emma = "emma-2.0.5312"
 @emma_zip = "#{@emma}.zip"
