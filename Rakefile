@@ -11,33 +11,34 @@ rescue LoadError
   abort "Gems missing. Try 'sudo gem install nokogiri libarchive-ruby'."
 end
 
-# This rakefile is used to set up the working environment for the mutation 
+# This rakefile is used to set up the working environment for the mutation
 # score predictor project. There are tasks to download and set up the required
 # mutation testing tool Javalanche. Other tasks are present to aid the user in
 # running the experiment.
 #
 # @author Kevin Jalbert
-# @version 0.6.0
+# @version 0.7.0
 
 # Project and environment variables (absolute paths) (user must/can modify)
 @eclipse = "/home/jalbert/Desktop/eclipse/"
 @eclipse_launcher = "#{@eclipse}plugins/" \
            "org.eclipse.equinox.launcher_1.1.0.v20100507.jar"
-@eclipse_workspace = "/home/jalbert/workspace/"
-@project_name = "joda-time-2.0"
-@project_prefix = "org.joda.time"
-@project_testsuite = "org.joda.time.TestAll"
+@eclipse_workspace = "/home/jalbert/workspace1/"
+@project_name = "jgap_3.6.1_full"
+@project_prefix = "org.jgap"
+@project_tests = "org.jgap.AllTests"
 @project_location = "#{@eclipse_workspace}#{@project_name}/"
-@max_memory = "3500"  # In megabytes (the max avalible memory)
-@memory_for_tests = "1750"  # In megabytes (the memory needed for the test suite)
-@project_test_directory = "#{@project_location}src/test/"  # Then prefix occurs
+@project_test_directory = "#{@project_location}tests/"  # Then prefix occurs
+@max_memory = "4000"  # In megabytes (the max avalible memory)
+@memory_for_tests = "2000"  # In megabytes (the memory needed for the test suite)
 @max_cores = "4"
+@javalanche_log_level = "ERROR"
 @python = "python2"  # Python 2.7 command
 @rake = "rake"  # Rake command
 @classpath = nil  # Acquired through ant/maven extraction
 
 # Variables related to Javalanche's database usage
-@use_mysql = true
+@use_mysql = false
 @mysql_database = "mutation_test"
 @mysql_user = "root"
 @mysql_password = "root"
@@ -49,10 +50,9 @@ end
                          "net.sourceforge.metrics_1.3.8.20100730-001.jar"
 @eclipse_metrics_xml_reader_git = "git://github.com/kevinjalbert/" \
                                   "eclipse_metrics_xml_reader.git"
-@javalanche = "javalanche-0.3.6"
-@javalanche_tar = "#{@javalanche}-bin.tar.gz"
-@javalanche_download = "http://www.st.cs.uni-saarland.de/~schuler/" \
-                       "javalanche/builds/#{@javalanche_tar}"
+@javalanche = "javalanche-0.4"
+@javalanche_download = "git://github.com/kevinjalbert/javalanche.git"
+@javalanche_branch = "score-analyzer"
 @javalanche_location = "#{@home}/#{@javalanche}"
 @javalanche_project_file = "#{@project_location}javalanche.xml"
 @libsvm = "libsvm-3.11"
@@ -74,7 +74,6 @@ CLOBBER.include("./#{@libsvm}")
 CLOBBER.include("./#{@emma}")
 CLOBBER.include("./#{@junit_jar}")
 CLEAN.include("./data")
-CLEAN.include("analyze.csv")
 CLEAN.include("javalanche.xml")
 CLEAN.include("Makefile")
 CLEAN.include("runMutations.sh")
@@ -100,20 +99,15 @@ end
 # Calls the clean commands on the project, as well as removing produced files
 task :clean_project do
   Dir.chdir("#{@project_location}") do
-    
+
     # Only clean Javalanche if the javalanche.xml is in the project directory
     if File.exists?("javalanche.xml")
-      if @use_mysql 
-        sh "#{create_javalanche_command("startHsql")}"
-      end
+      sh "#{create_javalanche_command("startHsql")}"
       sh "#{create_javalanche_command("deleteResults")}"
       sh "#{create_javalanche_command("deleteMutations")}"
       sh "#{create_javalanche_command("cleanJavalanche")}"
-      if @use_mysql
-        sh "#{create_javalanche_command("stopHsql")}"
-      end
+      sh "#{create_javalanche_command("stopHsql")}"
     end
-      rm_f("analyze.csv")
       rm_f("javalanche.xml")
       rm_f("Makefile")
       rm_f("runMutations.sh")
@@ -131,40 +125,36 @@ task :install_javalanche do
 
   # Perform install only if Javalanche directory doesn't exist
   if not File.directory?(@javalanche)
-    
-    # Download Javalanche's tar file
-    puts "[LOG] Directory #{@javalanche} does not exists"
-    puts "[LOG] Downloading #{@javalanche_tar} (15.3 MB)"
-    writeOut = open(@javalanche_tar, "wb")
-    writeOut.write(open(@javalanche_download).read)
-    writeOut.close
 
-    # Extract all files to the current directory
-    puts "[LOG] Extracting #{@javalanche_tar}"
-    a = Archive.new(@javalanche_tar)
-    a.extract
 
-    # Adjust log4j reporting level from WARN to INFO (needed for later step)
-    puts "[LOG] Adjusting log4j's reporting level to INFO"
-    file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'r')
-    content = file.read
-    file.close
-    content.gsub!("log4j.rootCategory=WARN", "log4j.rootCategory=INFO")
-    file = File.open("#{@javalanche}/src/main/resources/log4j.properties", 'w')
-    file.write(content)
-    file.close
+    puts "[LOG] Cloning Javalanche"
+    sh "git clone #{@javalanche_download}"
 
-    # Adjust hibernate.cfg idle test time (try to avoid possible deadlock error)
-    puts "[LOG] Adjusting hibernate.cfg idle test time to 300"
-    file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'r')
-    content = file.read
-    file.close
-    content.sub!("\"hibernate.c3p0.idle_test_period\">3000",
-                 "\"hibernate.c3p0.idle_test_period\">300")
+    # Compile Javalanche and place in proper place
+    Dir.chdir("javalanche") do
+
+      if @javalanche_branch != nil
+        sh "git checkout origin/#{@javalanche_branch}"
+      end
+
+      puts "[LOG] Compiling Javalanche"
+      sh "sh makeDist.sh"
+
+      puts "[LOG] Moving #{@javalanche}"
+      cp_r @javalanche, "./../#{@javalanche}"
+    end
+
+    puts "[LOG] Removing Javalanche's source"
+    rm_r "javalanche"
 
     # Configure the usage of Javalanche's database
     if @use_mysql
       puts "[LOG] Adjusting hibernate.cfg to use MySQL instead of HSQLDB"
+
+      file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'r')
+      content = file.read
+      file.close
+
       content.sub!("<!--", "")
       content.sub!("-->", "<!--")
       content.sub!("<property name=\"hibernate.jdbc.batch_size\">1</property>",
@@ -175,14 +165,11 @@ task :install_javalanche do
                    "<property name=\"hibernate.connection.username\">#{@mysql_user}")
       content.sub!("<property name=\"hibernate.connection.password\">mu",
                    "<property name=\"hibernate.connection.password\">#{@mysql_password}")
-    end
-    file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'w')
-    file.write(content)
-    file.close
 
-    # Deleting Javalanche's tar file
-    puts "[LOG] Deleting #{@javalanche_tar}"
-    rm @javalanche_tar
+      file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'w')
+      file.write(content)
+      file.close
+    end
 
     # Create data directory to place misc data files
     if not File.directory?("data")
@@ -197,7 +184,7 @@ end
 # Install Eclipse metrics XML reader
 task :install_eclipse_metrics_xml_reader do
 
-  # Perform install only if Javalanche directory doesn't exist
+  # Perform install only if Eclipse metrics directory doesn't exist
   if not File.directory?("eclipse_metrics_xml_reader")
     puts "[LOG] Cloning Eclipse metrics XML reader"
     sh "git clone #{@eclipse_metrics_xml_reader_git}"
@@ -242,7 +229,7 @@ task :install_emma do
 
   # Perform install only if emma directory doesn't exist
   if not File.directory?(@emma)
-    
+
     # Download emma's zip file
     puts "[LOG] Directory #{@emma} does not exists"
     puts "[LOG] Downloading #{@emma_zip} (675.8 KB)"
@@ -309,7 +296,7 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
 
       # Build string of testing concrete tests, while ignoring abstract tests
       test_classes.uniq.each do |test|
-        
+
         # Acquire the actual file path of the test
         file = "#{@project_test_directory}#{test.gsub(".",File::Separator)}.java"
 
@@ -335,7 +322,7 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
               "-ix +#{@project_prefix}.* "
         command = "java -Xmx#{@max_memory}m #{emma} -cp #{@classpath}:" \
                   "#{@home}/#{@junit_jar} #{opts}"
-                
+
         # Store the output of the JUnit tests
         output = `#{command} org.junit.runner.JUnitCore #{testing}`
 
@@ -418,7 +405,7 @@ task :cross_validation  do
 end
 
 # Converts the metric XML file into a libsvm format
-task :convert_metrics_to_libsvm => [:get_eclipse_metrics_xml, 
+task :convert_metrics_to_libsvm => [:get_eclipse_metrics_xml,
                                     :install_eclipse_metrics_xml_reader] do
     puts "[LOG] Converting metrics to libsvm format"
     sh "#{@python} " \
@@ -496,7 +483,7 @@ task :setup_metrics_build_file do
   build_content << "\n      projectName=\"#{@project_name}\" "
   build_content << "\n      file=\"#{Dir.pwd}/data/#{@project_name}.xml\"/>"
   build_content << "\n  </target>"
-  build_content << "\n</project>"  
+  build_content << "\n</project>"
 
   # Create a new build file with the new metrics task
   puts "[LOG] Creating project's new build file"
@@ -522,7 +509,7 @@ task :get_mutation_scores => [:install_javalanche, :setup_javalanche] do
   mv("#{@project_name}_mutation.operators", "./data/")
 end
 
-# Set up Javalanche 
+# Set up Javalanche
 task :setup_javalanche do
 
   # Find and set the classpath for the project
@@ -537,20 +524,15 @@ task :setup_javalanche do
   # Make new target
   content.gsub!("</project>", "")
   content << "    <target name=\"getMutationScores\" depends=\""
-  if !@use_mysql
-    content << "startHsql,"
-  end
-  content << "schemaexport,scanProject,scan,createTasks,createCoverageData,"
+  content << "startHsql,schemaexport,scanProject,scan,createTasks,"
   content << "createMutationMakefile\">"
   content << "\n        <exec executable=\"make\" spawn=\"false\">"
   content << "\n            <arg value=\"-j#{number_of_tasks}\"/>"
   content << "\n        </exec>"
   content << "\n        <property name=\"javalanche.mutation.analyzers\" value"
-  content << "=\"de.unisb.cs.st.javalanche.coverage.CoverageAnalyzer\" />"
+  content << "=\"de.unisb.cs.st.javalanche.mutation.analyze.MutationScoreAnalyzer\" />"
   content << "\n        <antcall target=\"analyzeResults\" />"
-  if !@use_mysql
-    content << "\n        <antcall target=\"stopHsql\" />"
-  end
+  content << "\n        <antcall target=\"stopHsql\" />"
   content << "\n     </target>"
   content << "\n</project>"
 
@@ -573,11 +555,12 @@ task :setup_javalanche do
   content << "\n        echo \"Task ${2} not completed - starting again\""
   content << "\n        nice -10 ant -f javalanche.xml "
   content << "-Dprefix=#{@project_prefix} -Dcp=#{@classpath} "
-  content << "-Dtestsuite=#{@project_testsuite} "
+  content << "-Dtests=#{@project_tests} "
   content << "-Djavalanche=#{@javalanche_location} "
   content << "-Djavalanche.maxmemory=#{@memory_for_tests}m "
+  content << "-Djavalanche.log.level=#{@javalanche_log_level} "
   content << "-Djavalanche.properties.add="
-  content << "-Djavalanche.stop.after.first.fail=false runMutationsCoverage "
+  content << "-Djavalanche.stop.after.first.fail=false runMutations "
   content << "${3} -Dmutation.file=${1}  2>&1 | tee -a $OUTPUTFILE"
   content << "\n        sleep 1"
   content << "\ndone"
@@ -591,9 +574,10 @@ task :setup_javalanche do
 end
 
 def create_javalanche_command(task)
-    command = "ant -f javalanche.xml -Dprefix=#{@project_prefix} "
-    command << "-Dcp=#{@classpath} -Dtestsuite=#{@project_testsuite} "
+    command = "nice -10 ant -f javalanche.xml -Dprefix=#{@project_prefix} "
+    command << "-Dcp=#{@classpath} -Dtests=#{@project_tests} "
     command << "-Djavalanche.maxmemory=#{@max_memory}m "
+    command << "-Djavalanche.log.level=#{@javalanche_log_level} "
     command << "-Djavalanche=#{@javalanche_location} #{task}"
   return command
 end
@@ -619,14 +603,33 @@ def number_of_tasks
   if @memory_for_tests.to_i > @max_memory.to_i
     raise("[ERROR] Not enough memory to execute test suite successfully")
   end
- 
+
   # Figure out the number of task that can be ran reliably given the max memory
   task = @max_memory.to_i / @memory_for_tests.to_i
 
-  # Ensure that the number of tasks is less then the number of cores avalible 
+  # Ensure that the number of tasks is less then the number of cores avalible
   if task > @max_cores.to_i
     task = @max_cores.to_i
   end
 
   return task.to_s
+end
+
+# Test if the project can run through javalanche with no problems
+task :testProject => [:install_javalanche, :setup_javalanche] do
+
+  # Run javalanche's test tasks to ensure project is capable to run
+  Dir.chdir(@project_location) do
+
+    rm "./mutation-files/failed-tests.xml" if File.exists?("./mutation-files/failed-tests.xml")
+    rm "./mutation-files/failing-tests-permuted.txt" if File.exists?("./mutation-files/failing-tests-permuted.txt")
+
+    puts "[LOG] Test Javalanche command (testTask2)"
+    sh "#{create_javalanche_command("testTask2")}"
+    sh "cat ./mutation-files/failed-tests.xml" if File.exists?("./mutation-files/failed-tests.xml")
+
+    puts "[LOG] Test Javalanche command (testTask3)"
+    sh "#{create_javalanche_command("testTask3")}"
+    sh "cat ./mutation-files/failing-tests-permuted.txt" if File.exists?("./mutation-files/failing-tests-permuted.txt")
+  end
 end
