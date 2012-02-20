@@ -85,6 +85,7 @@ CLOBBER.include("./eclipse_metrics_xml_reader")
 CLOBBER.include("./#{@libsvm}")
 CLOBBER.include("./#{@emma}")
 CLOBBER.include("./#{@junit_jar}")
+CLOBBER.include("./SingleJUnitTestRunner.jar")
 CLOBBER.include("sqlite3.db")
 CLEAN.include("./data")
 CLEAN.include("javalanche.xml")
@@ -289,6 +290,11 @@ task :install_junit do
   else
     puts "[LOG] File #{@junit_jar} already exists"
   end
+
+  puts "[LOG] Creating Custom JUnit Test Runner (SingleJUnitTestRunner)"
+  sh "javac -cp junit-4.8.1.jar SingleJUnitTestRunner.java"
+  sh "jar cf SingleJUnitTestRunner.jar SingleJUnitTestRunner.class"
+  rm "SingleJUnitTestRunner.class"
 end
 
 # Set up support vector machine using the mutation scores and metrics
@@ -336,10 +342,10 @@ task :setup_svm => [:sqlite3, :get_mutation_scores, :extract_metrics,
               "#{@classpath} #{opts}"
 
         # Store the output of the JUnit tests
-        output = `#{command} org.junit.runner.JUnitCore #{testing}`
+        output = `#{command} SingleJUnitTestRunner #{testing}`
 
         # Handle output, it might have errors, nothing or results
-        if output.include?("FAILURES!!!")
+        if output.include?("fail")
           puts "[ERROR] With Emma JUnit testing"
           file = File.open("#{@home}/data/coverage#{count}.xml", 'w')
           file.write("")
