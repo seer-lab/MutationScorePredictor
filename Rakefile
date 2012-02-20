@@ -3,13 +3,24 @@ begin
   require 'open-uri'
   require 'archive'
   require 'nokogiri'
+  require 'data_mapper'
   require './mutation_scorer.rb'
+  require './extract_source_metrics.rb'
   require './metric_libsvm_synthesizer.rb'
   require './test_suite_method_metrics.rb'
   require './class_metric_accumulator.rb'
+  require './method_data.rb'
+  require './class_data.rb'
 rescue LoadError
-  abort "Gems missing. Try 'sudo gem install nokogiri libarchive-ruby'."
+  abort "Gems missing. Try 'sudo gem install nokogiri libarchive-ruby datamapper'."
 end
+
+
+
+# DataMapper::Logger.new($stdout, :debug)
+DataMapper.setup(:default, ENV['DATABASE_URL'] || "sqlite3:///#{Dir.pwd}/sqlite3.db")
+# DataMapper.setup(:default, ENV['DATABASE_URL'] || "sqlite3::memory:")
+DataMapper::Model.raise_on_save_failure = true
 
 # This rakefile is used to set up the working environment for the mutation
 # score predictor project. There are tasks to download and set up the required
@@ -17,13 +28,14 @@ end
 # running the experiment.
 #
 # @author Kevin Jalbert
-# @version 0.7.0
+# @version 0.8.0
 
 # Project and environment variables (absolute paths) (user must/can modify)
 @eclipse = "/home/jalbert/Desktop/eclipse/"
 @eclipse_launcher = "#{@eclipse}plugins/" \
            "org.eclipse.equinox.launcher_1.1.0.v20100507.jar"
 @eclipse_workspace = "/home/jalbert/workspace1/"
+@project_run = 1
 @project_name = "jgap_3.6.1_full"
 @project_prefix = "org.jgap"
 @project_tests = "org.jgap.AllTests"
@@ -73,6 +85,7 @@ CLOBBER.include("./eclipse_metrics_xml_reader")
 CLOBBER.include("./#{@libsvm}")
 CLOBBER.include("./#{@emma}")
 CLOBBER.include("./#{@junit_jar}")
+CLOBBER.include("sqlite3.db")
 CLEAN.include("./data")
 CLEAN.include("javalanche.xml")
 CLEAN.include("Makefile")
@@ -115,9 +128,20 @@ task :clean_project do
 end
 
 desc "Install the necessary components for this project"
-task :install => [:install_javalanche, :install_eclipse_metrics_xml_reader,
-                  :install_libsvm, :install_emma, :install_junit] do
+task :install => [:sqlite3, :install_javalanche,
+                  :install_eclipse_metrics_xml_reader, :install_libsvm,
+                  :install_emma, :install_junit] do
+
+  puts "[LOG] Performing an auto_migrate on sqlite3.db"
+  DataMapper.auto_migrate!
+
   puts "[LOG] Necessary components are present and ready"
+end
+
+# Ready sqlite3 DB
+task :sqlite3 do
+  puts "[LOG] Ready sqlite3 DB"
+  DataMapper.finalize
 end
 
 # Install Javalanche
@@ -269,36 +293,23 @@ end
 
 # Set up support vector machine using the mutation scores and metrics
 desc "Set up the support vector machine for training"
-task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
+task :setup_svm => [:sqlite3, :get_mutation_scores, :extract_metrics,
                     :install_emma] do
 
-  # Set up the process to find the test suite method metrics
-  test_suite_method_metrics = TestSuiteMethodMetrics.new(@project_location,
-                             "./data/#{@project_name}_method.labels",
-                             "./data/#{@project_name}_method.libsvm")
-  tests_for_methods = test_suite_method_metrics.get_tests_for_methods(
-                        "#{@project_location}mutation-files/")
+  completed_tests = Hash.new
+  count = 1
 
-  # Run emma for each method using the touched tests, to get coverage metrics
-  c = 1
-  done = Hash.new
-  Dir.chdir(@project_location) do
+  # Use all the methods that have a mutation score and source metrics
+  MethodData.all(:project => @project_name, :run => @project_run, :usable => true, :tests_touched.not => "").each do |method|
 
-    # Format tests from array to string with no methods
-    tests_for_methods.each do |method,tests|
+    Dir.chdir(@project_location) do
+
       testing = ""
-
-      # Filter the test methods to only test classes
-      test_classes = []
-      tests_for_methods[method].each do |test|
-        test_classes << test[0, test.rindex(".")]
-      end
-
       # Build string of testing concrete tests, while ignoring abstract tests
-      test_classes.uniq.each do |test|
+      method.tests_touched.split(" ").each do |test|
 
         # Acquire the actual file path of the test
-        file = "#{@project_test_directory}#{test.gsub(".",File::Separator)}.java"
+        file = "#{@project_test_directory}#{test.rpartition(".").first.gsub(".",File::Separator)}.java"
 
         # Seems that tests with the '$' still works via a system call (it will
         #   actually ignore everything after the '$' till the '.')
@@ -307,21 +318,22 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
           puts "[INFO] Ignoring abstract test case #{test}"
           next
         end
-        testing += test + " "
+        testing += test.rpartition(".").first + "#" + test.rpartition(".").last + " "
       end
 
       # Only execute the coverage test if it hasn't already been executed
-      if done.has_key?(testing)
+      if completed_tests.has_key?(testing)
         puts "[LOG] Test coverage already executed, copying old results"
-        cp("#{@home}/data/#{done[testing]}", "#{@home}/data/coverage#{c}.xml")
+        cp("#{@home}/data/#{completed_tests[testing]}", "#{@home}/data/coverage#{count}.xml")
       else
         emma = "-cp #{@home}/#{@emma}/lib/emma.jar emmarun -r xml"
         opts = "-Dreport.sort=-method -Dverbosity.level=silent " \
               "-Dreport.columns=name,line,block -Dreport.depth=method " \
-              "-Dreport.xml.out.file=coverage#{c}.xml " \
+              "-Dreport.xml.out.file=coverage#{count}.xml " \
               "-ix +#{@project_prefix}.* "
-        command = "java -Xmx#{@max_memory}m #{emma} -cp #{@classpath}:" \
-                  "#{@home}/#{@junit_jar} #{opts}"
+        command = "java -Xmx#{@max_memory}m #{emma} -cp " \
+              "#{@home}/#{@junit_jar}:#{@home}/SingleJUnitTestRunner.jar:" \
+              "#{@classpath} #{opts}"
 
         # Store the output of the JUnit tests
         output = `#{command} org.junit.runner.JUnitCore #{testing}`
@@ -329,44 +341,27 @@ task :setup_svm => [:get_mutation_scores, :convert_metrics_to_libsvm,
         # Handle output, it might have errors, nothing or results
         if output.include?("FAILURES!!!")
           puts "[ERROR] With Emma JUnit testing"
-          file = File.open("#{@home}/data/coverage#{c}.xml", 'w')
-          file.write("")
-          file.close
-        elsif testing == ""
-          puts "[WARNING] No valid test cases to use with Emma"
-          file = File.open("#{@home}/data/coverage#{c}.xml", 'w')
+          file = File.open("#{@home}/data/coverage#{count}.xml", 'w')
           file.write("")
           file.close
         else
-          mv("coverage#{c}.xml", "#{@home}/data/")
+          mv("coverage#{count}.xml", "#{@home}/data/")
         end
 
         # Store this test coverage to reduce number of executions
-        done[testing] = "coverage#{c}.xml"
+        completed_tests[testing] = "coverage#{count}.xml"
       end
-      c += 1
+      count += 1
     end
   end
 
   # Add test metrics to the methods's metrics
   puts "[LOG] Adding testing metrics to method metrics"
-  test_suite_method_metrics.process(tests_for_methods)
+  TestSuiteMethodMetrics.new(@project_name, @project_run).process
 
   # Accumulating metrics from methods into the classes
   puts "[LOG] Accumulating metrics from methods into classes"
-  ClassMetricAccumulator.new("./data/#{@project_name}_method.libsvm_new",
-                           "./data/#{@project_name}_method.labels_new",
-                           "./data/#{@project_name}_class.libsvm",
-                           "./data/#{@project_name}_class.labels").process
-
-  # Synthesize the libsvm and the mutation scores into known libsvm data
-  puts "[LOG] Synthesizing metrics and mutation scores to a trainable libsvm"
-  MetricLibsvmSynthesizer.new("./data/#{@project_name}_class.libsvm_new",
-                              "./data/#{@project_name}_class.labels_new",
-                              "./data/#{@project_name}_class_mutation.score").process
-  MetricLibsvmSynthesizer.new("./data/#{@project_name}_method.libsvm_new",
-                              "./data/#{@project_name}_method.labels_new",
-                              "./data/#{@project_name}_method_mutation.score").process
+  ClassMetricAccumulator.new(@project_name, @project_run).process
 
   # Recap on the memory and cores used
   puts "Resource Summary:"
@@ -377,7 +372,12 @@ end
 
 # Perform cross validation of the project
 desc "Perform cross validation on the project"
-task :cross_validation  do
+task :cross_validation => [:sqlite3] do
+
+
+  puts "[LOG] Creating .libsvm files"
+  MetricLibsvmSynthesizer.new(@project_name, @project_run, @home).process
+
   Dir.chdir("#{@libsvm}") do
     puts "[LOG] Making libsvm"
     sh "make"
@@ -397,21 +397,28 @@ task :cross_validation  do
 
       puts "[LOG] Performing cross validation"
       sh "#{@python} easy.py " \
-         "./../../data/#{@project_name}_class.libsvm_new_synth"
+         "./../../data/#{@project_name}_class_#{@project_run}.libsvm"
       sh "#{@python} easy.py " \
-         "./../../data/#{@project_name}_method.libsvm_new_synth"
+         "./../../data/#{@project_name}_method_#{@project_run}.libsvm"
     end
   end
 end
 
-# Converts the metric XML file into a libsvm format
-task :convert_metrics_to_libsvm => [:get_eclipse_metrics_xml,
-                                    :install_eclipse_metrics_xml_reader] do
-    puts "[LOG] Converting metrics to libsvm format"
+# Extract metric XML file into sqlite DB
+task :extract_metrics => [:sqlite3, :get_eclipse_metrics_xml,
+                          :install_eclipse_metrics_xml_reader] do
+
+    puts "[LOG] Converting metrics to csv format"
     sh "#{@python} " \
        "./eclipse_metrics_xml_reader/src/eclipse_metrics_xml_reader.py -i " \
-       "./data/#{@project_name}.xml"
+       "./data/#{@project_name}.xml -t csv"
+
+    puts "[LOG] Extract metric from csv format into sqlite3 DB"
+    ExtractSourceMetrics.new(@project_name, @project_run,
+    "#{@home}/data/#{@project_name}_class.csv",
+    "#{@home}/data/#{@project_name}_method.csv").process
 end
+
 
 # Executes the headless Eclipse Metrics plugin to acquire the metric XML file
 task :get_eclipse_metrics_xml => :setup_metrics_build_file do
@@ -493,7 +500,8 @@ task :setup_metrics_build_file do
 end
 
 # Get the mutation scores for the project using javalanche
-task :get_mutation_scores => [:install_javalanche, :setup_javalanche] do
+task :get_mutation_scores => [:sqlite3, :install_javalanche,
+                              :setup_javalanche] do
 
   # Run javalanche
   Dir.chdir(@project_location) do
@@ -503,10 +511,9 @@ task :get_mutation_scores => [:install_javalanche, :setup_javalanche] do
 
   # Extract mutation scores from Javalanche
   puts "[LOG] Extracting mutation scores from Javalanche results"
-  MutationScorer.new(@project_name, "#{@project_location}analyze.csv").process
-  mv("#{@project_name}_class_mutation.score", "./data/")
-  mv("#{@project_name}_method_mutation.score", "./data/")
-  mv("#{@project_name}_mutation.operators", "./data/")
+  MutationScorer.new(@project_name, @project_run,
+    "#{@project_location}mutation-files/class-scores.csv",
+    "#{@project_location}mutation-files/method-scores.csv").process
 end
 
 # Set up Javalanche
@@ -616,7 +623,7 @@ def number_of_tasks
 end
 
 # Test if the project can run through javalanche with no problems
-task :testProject => [:install_javalanche, :setup_javalanche] do
+task :test_project => [:install_javalanche, :setup_javalanche] do
 
   # Run javalanche's test tasks to ensure project is capable to run
   Dir.chdir(@project_location) do

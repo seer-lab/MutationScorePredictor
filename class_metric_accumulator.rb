@@ -1,172 +1,79 @@
 class ClassMetricAccumulator
 
-  attr_reader = :method_libsvm_file, :method_labels_file, :class_libsvm_file,
-                :class_labels_file
+ attr_reader = :project, :run
 
-  def initialize(method_libsvm_file, method_labels_file, class_libsvm_file, 
-                 class_labels_file)
-    @method_libsvm_file = method_libsvm_file
-    @method_labels_file = method_labels_file
-    @class_libsvm_file = class_libsvm_file
-    @class_labels_file = class_labels_file
+  def initialize(project, run)
+    @project = project
+    @run = run
   end
 
-  def get_lines(content)
-    lines = []
-
-    # Split content into lines while ignoring comments
-    content.split(/\r?\n|\r/).each do |line|
-      if line[0] != "#"
-        lines << line
-      end
-    end
-
-    return lines
-  end
-
-  def form_updated_metrics(metrics, class_metrics, class_name)
-
-    # If hash key exists update it, otherwise add it
-    values = []
-    if class_metrics.has_key?(class_name)
-      values = class_metrics[class_name]
-      
-      # Add new sum and avg metrics (avg is calculated afterwards)
-      for i in (0..4) do
-        values[i*2] += metrics[i][0].to_f 
-        values[(i*2)+1] += metrics[i][0].to_f
-      end
-
-      # Add reminding values
-      for i in (5..18) do
-        values[i+5] += metrics[i][0].to_f
-      end
+  def divide(value1, value2)
+    if value2 == 0
+      return 0
     else
-
-      # Create new sum and avg metrics (avg is calculated afterwards)
-      for i in (0..4) do
-        values << metrics[i][0].to_f
-        values << metrics[i][0].to_f 
-      end
-
-      # Add reminding values
-      for i in (5..18) do
-        values << metrics[i][0].to_f
-      end
-    end
-    return values
-  end
-
-  def calculate_avg_and_coverage(class_metrics, class_libsvm, class_counter)
-
-    # Calculate each class' avg metrics and coverage scores
-    for key, metrics in class_metrics do
-
-      # For only the avg metrics
-      for i in (0..17)
-
-        # Only odd index are avg metrics
-        if i % 2 != 0 
-          metrics[i] = metrics[i] / class_counter[key]
-        end
-      end
-
-      # For the coverage metrics
-      metrics[20] = metrics[18] / metrics[19]
-      metrics[23] = metrics[21] / metrics[22]
+      return value1.to_f / value2.to_f
     end
   end
 
-  def create_new_libsvm_label(class_labels, class_libsvm, class_metrics)
-    # Form the new_class_labels and new_class_libsvm files
-    index = 0
-    new_class_libsvm = ""
-    new_class_labels = ""
+  def accumulate_metrics
 
-    for label in class_labels do
-      if class_metrics.has_key?(label)
+    # For all classes
+    ClassData.all(:project => @project, :run => @run).each do |class_item|
 
-        # Form and add the new metric string for this label
-        added_metrics = class_libsvm[index] + " "
-        for i in (0..23) do
-          added_metrics += "#{11+i}:#{class_metrics[label][i]} "
-        end
-        new_class_libsvm += added_metrics.strip + "\n"
+      # Acquire avg metrics of matching methods
+      number_of_methods = MethodData.count(:project => @project, :run => @run, :class_name => class_item.class_name)
 
-        # Track the corresponding label
-        new_class_labels += label.strip + "\n"
+      if number_of_methods != 0
+
+        puts "[LOG] Accumulating Metrics - #{class_item.class_name}"
+
+        # Acquire sum metrics of matching methods
+        class_item.update(
+          :occurs => class_item.occurs + 1,
+          :smloc => MethodData.sum(:mloc, :conditions => {:project => @project, :run => @run}),
+          :snbd => MethodData.sum(:nbd, :conditions => {:project => @project, :run => @run}),
+          :svg => MethodData.sum(:vg, :conditions => {:project => @project, :run => @run}),
+          :spar => MethodData.sum(:par, :conditions => {:project => @project, :run => @run}),
+          :stmloc => MethodData.sum(:stmloc, :conditions => {:project => @project, :run => @run}),
+          :stnbd => MethodData.sum(:stnbd, :conditions => {:project => @project, :run => @run}),
+          :stvg => MethodData.sum(:stvg, :conditions => {:project => @project, :run => @run}),
+          :stpar => MethodData.sum(:stpar, :conditions => {:project => @project, :run => @run}),
+          :lcov =>  MethodData.sum(:lcov, :conditions => {:project => @project, :run => @run}),
+          :ltot =>  MethodData.sum(:ltot, :conditions => {:project => @project, :run => @run}),
+          :bcov =>  MethodData.sum(:bcov, :conditions => {:project => @project, :run => @run}),
+          :btot =>  MethodData.sum(:btot, :conditions => {:project => @project, :run => @run})
+        )
+
+        # Acquire avg metrics of matching methods
+        class_item.update(
+          :amloc => divide(class_item.smloc, number_of_methods),
+          :anbd => divide(class_item.snbd, number_of_methods),
+          :avg => divide(class_item.svg, number_of_methods),
+          :apar => divide(class_item.spar, number_of_methods),
+          :atmloc => divide(class_item.stmloc, number_of_methods),
+          :atnbd => divide(class_item.stnbd, number_of_methods),
+          :atvg => divide(class_item.stvg, number_of_methods),
+          :atpar => divide(class_item.stpar, number_of_methods)
+        )
+
+        # Calculate class coverage scores
+        class_item.update(
+          :lscor => divide(class_item.lcov, class_item.ltot),
+          :bscor => divide(class_item.bcov, class_item.btot)
+        )
       end
-    index += 1
     end
-
-    return new_class_libsvm, new_class_labels
-  end
-
-  def accumulate_metrics(method_libsvm, method_labels, class_libsvm,
-                         class_labels)
-
-    index = 0
-    regex = /:(\d+[\.\d]*)/  # Finds the values in a libsvm file
-    class_metrics = Hash.new  # class => array of metrics
-    class_counter = Hash.new  # class => number of encounters
-
-    # Iterate over method metrics and accumulate metrics for classes
-    for label in method_labels do
-      
-      # Acquire the class name
-      class_name = label[0..label.rindex(".")-1]
-
-      # Increment the counter for this class
-      if class_counter.has_key?(class_name)
-        class_counter[class_name] += 1
-      else
-        class_counter[class_name] = 1
-      end
-
-      # Acquire the metrics for this label
-      metrics = method_libsvm[index].scan(regex)
-      
-      # Find the new values for the current class
-      values = form_updated_metrics(metrics, class_metrics, class_name)
-      class_metrics[class_name] = values
-
-      index += 1
-    end
-
-    # Calculate the average and coverage metrics for the class
-    calculate_avg_and_coverage(class_metrics, class_libsvm, class_counter)
-
-    return create_new_libsvm_label(class_labels, class_libsvm, class_metrics)
   end
 
   def process
 
-    # Acquire the lines of the file content
-    method_libsvm = get_lines(File.read(@method_libsvm_file))
-    method_labels = get_lines(File.read(@method_labels_file))
-    class_libsvm = get_lines(File.read(@class_libsvm_file))
-    class_labels = get_lines(File.read(@class_labels_file))
-
     # Perform the accumulation of method metrics into the class metrics
-    new_class_libsvm, new_class_labels = accumulate_metrics(method_libsvm, 
-                                                            method_labels,
-                                                            class_libsvm,
-                                                            class_labels)
+    accumulate_metrics
 
-    # Add comments about the new metrics in the labels file
-    new_class_labels += "# ['SMLOC', 'AMLOC', 'SNBD', 'ANBD', 'SVG', 'AVG', "\
-                        "'SPAR', 'APAR', 'SNOT', 'ANOT', 'STMLOC', 'ATMLOC',"\
-                        " 'STNBD', 'ATNBD', 'STVG', 'ATVG', 'STPAR', 'ATPAR',"\
-                        " 'LCOV', 'LTOT', 'LSCOR', 'BCOV', 'BTOT', 'BSCOR'] \n"
-    new_class_labels += "# Matches line-to-line with the corresponding "\
-                        " metrics file (no labels extension)"
+    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :run => @run, :usable => true).count}"
+    puts "[LOG] Removing items that are not valid (no valid methods in class) (occurs!=3)"
+    ClassData.all(:project => @project, :run => @run, :usable => true, :occurs.not => 3).update(:usable => false)
+    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :run => @run, :usable => true).count}"
 
-    file = File.open("#{@class_libsvm_file}_new", 'w')
-    file.write(new_class_libsvm)
-    file.close
-
-    file = File.open("#{@class_labels_file}_new", 'w')
-    file.write(new_class_labels)
-    file.close
   end
 end

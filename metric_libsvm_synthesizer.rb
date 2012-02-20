@@ -1,97 +1,110 @@
-require 'csv'
-
 class MetricLibsvmSynthesizer
 
-  attr_reader = :libsvm_file, :labels_file, :scores_file
+  attr_reader = :project, :run, :home
 
-  def initialize(libsvm_file, labels_file, scores_file)
-    @libsvm_file = libsvm_file
-    @labels_file = labels_file
-    @scores_file = scores_file
+  def initialize(project, run, home)
+    @project = project
+    @run = run
+    @home = home
   end
 
-  def get_unit_scores(file)
-    unit_score = Hash.new()
+  def determine_ranges(data_set)
 
-    # row[0]  = name | row[1] = killed | row[2] = total | row[3] = score
-    CSV.foreach(file, :col_sep => ';') do |row|
+    # Figure the ranges out
+    items_per_range = data_set.count / 3
+    lower_break = data_set[items_per_range].mutation_score_of_covered_mutants
+    upper_break = data_set[2*items_per_range].mutation_score_of_covered_mutants
 
-      # Give unit a score
-      unit_score[row[0]] = row[3]
-    end
-    return unit_score
+
+    # # Figure the ranges out
+    # items_per_range = data_set.count / 2
+    # lower_break = data_set[items_per_range].mutation_score_of_covered_mutants
+    # ap lower_break
+    # upper_break = -1
+
+    return lower_break, upper_break
   end
 
-  def get_line_mapping(labels_content)
-    line_mapping = Hash.new()
-    line_number = 1
+  def make_libsvm(type, data_set, lower_break, upper_break)
 
-    labels_content.split(/\r?\n|\r/).each do |label|
+    content = ""
 
-      # Completed the mapping, rest are comments
-      if label[0] == "#"
-        break
+    data_set.each do |item|
+
+      if item.mutation_score_of_covered_mutants <= lower_break
+        content += "1 "
+      elsif item.mutation_score_of_covered_mutants <= upper_break
+        content += "2 "
+      else
+        content += "3 "
       end
 
-      line_mapping[line_number] = label
-      line_number += 1
-    end
+      property_count = 0
+      data_set.properties.each do |property|
 
-    return line_mapping
-  end
+        field = property.instance_variable_name[1..-1]
 
-  def get_score_category(score)
-    if score >= 0.00000000000000 and score <= 40.00000000000000
-      return 2
-    elsif score > 40.00000000000000 and score <= 80.00000000000000
-      return 1
-    elsif score > 80.00000000000000 and score <= 100.00000000000000
-      return 0
-    end
-  end
+        if field == "id" || field == "project" || field == "run" || field == "class_name" ||
+          field == "method_name" || field == "occurs" || field == "usable" || field == "killed_mutants" ||
+          field == "covered_mutants" || field == "generated_mutants" ||
+          field == "mutation_score_of_covered_mutants" || field == "mutation_score_of_generated_mutants" ||
+          field == "tests_touched" || field == "created_at" || field == "updated_at" ||
 
-  def synthesize_libsvm(old_libsvm, line_mapping, unit_score, old_labels)
-    line_number = 1
-    new_libsvm = ""
-    new_labels = ""
+          field == "stmloc" ||
+          # field == "atmloc" ||
+          field == "stnbd" ||
+          # field == "atnbd" ||
+          field == "stvg" ||
+          # field == "atvg" ||
+          field == "stpar" ||
+          # field == "atpar" ||
 
-    # Fill in the category for each line of the libsvm
-    old_libsvm.split(/\r?\n|\r/).each do |line|
-      
-      # Figure out the category of the unit
-      mutation_score = unit_score[line_mapping[line_number]]
-      if mutation_score != nil
-        category = get_score_category(mutation_score.to_f)
-        new_libsvm << line.sub("-1", category.to_s) + "\n"
-        new_labels << line_mapping[line_number] + "\n"
+          field == "smloc" ||
+          # field == "amloc" ||
+          field == "snbd" ||
+          # field == "anbd" ||
+          field == "svg" ||
+          # field == "avg" ||
+          field == "spar" ||
+          # field == "apar" ||
+
+          field == "lcov" ||
+          field == "ltot" ||
+          # field == "lscor" ||
+          field == "bcov" ||
+          field == "btot"
+          # field == "bscor"
+
+        else
+          property_count += 1
+          content += "#{property_count}:#{item.send(field)} "
+        end
       end
-      line_number += 1
+      content += "\n"
     end
-    return new_libsvm, new_labels
+    return content
   end
 
   def process
 
-    # Acquire the files content
-    old_libsvm = File.read(@libsvm_file)
-    labels = File.read(@labels_file)
+    class_data = ClassData.all(:project => @project, :run => @run, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    method_data = MethodData.all(:project => @project, :run => @run, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
 
-    # Acquire the unit_name => score values
-    unit_score = get_unit_scores(@scores_file)
+    # Determine ranges for class and method data
+    class_lower_break, class_upper_break = determine_ranges(class_data)
+    method_lower_break, method_upper_break = determine_ranges(method_data)
 
-    # Acquire the line_number => unit name
-    line_mapping = get_line_mapping(labels)
+    # Create file contents with appropriate categories
+    class_libsvm = make_libsvm("class", class_data, class_lower_break, class_upper_break)
+    method_libsvm = make_libsvm("method", method_data, method_lower_break, method_upper_break)
 
-    # Synthesize the libsvm with the scores
-    new_libsvm, new_labels = synthesize_libsvm(old_libsvm, line_mapping,
-                                               unit_score, labels)
-
-    file = File.open("#{@libsvm_file}_synth", 'w')
-    file.write(new_libsvm)
+    # Write out .libsvm files
+    file = File.open("#{@home}/data/#{@project}_class_#{@run}.libsvm", 'w')
+    file.write(class_libsvm)
     file.close
 
-    file = File.open("#{@labels_file}_synth", 'w')
-    file.write(new_labels)
+    file = File.open("#{@home}/data/#{@project}_method_#{@run}.libsvm", 'w')
+    file.write(method_libsvm)
     file.close
   end
 end
