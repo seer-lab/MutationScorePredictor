@@ -19,6 +19,28 @@ class MethodData
   property :mutation_score_of_covered_mutants, Float, :default => 0.0
   property :mutation_score_of_generated_mutants, Float, :default => 0.0
   property :tests_touched, Text, :default => "", :length => 1000000
+ 
+  # Mutation Types
+  property :killed_no_mutation, Integer, :default => 0
+  property :total_no_mutation, Integer, :default => 0
+  property :killed_replace_constant, Integer, :default => 0
+  property :total_replace_constant, Integer, :default => 0
+  property :killed_negate_jump, Integer, :default => 0
+  property :total_negate_jump, Integer, :default => 0
+  property :killed_arithmetic_replace, Integer, :default => 0
+  property :total_arithmetic_replace, Integer, :default => 0
+  property :killed_remove_call, Integer, :default => 0
+  property :total_remove_call, Integer, :default => 0
+  property :killed_replace_variable, Integer, :default => 0
+  property :total_replace_variable, Integer, :default => 0 
+  property :killed_absolute_value, Integer, :default => 0
+  property :total_absolute_value, Integer, :default => 0
+  property :killed_unary_operator, Integer, :default => 0
+  property :total_unary_operator, Integer, :default => 0
+  property :killed_replace_thread_call, Integer, :default => 0
+  property :total_replace_thread_call, Integer, :default => 0
+  property :killed_monitor_remove, Integer, :default => 0
+  property :total_monitor_remove, Integer, :default => 0
 
   # Method Source Metrics
   property :mloc, Integer, :default => 0
