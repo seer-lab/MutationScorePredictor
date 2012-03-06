@@ -40,11 +40,15 @@ class TestSuiteMethodMetrics
       # Extract the sum metrics of the tests for this method
       method.tests_touched.split(" ").each do |test|
         test_method = MethodData.first(:project => @project, :run => @run, :method_name => test)
-        sum_tmloc += test_method.mloc
-        sum_tnbd += test_method.nbd
-        sum_tvg += test_method.vg
-        sum_tpar += test_method.par
-        number_of_tests += 1
+        if test_method != nil
+          sum_tmloc += test_method.mloc
+          sum_tnbd += test_method.nbd
+          sum_tvg += test_method.vg
+          sum_tpar += test_method.par
+          number_of_tests += 1
+        else
+          puts "[LOG] Test:#{test} was not found, thus excluding it"
+        end
       end
 
       # Calculate the averages for the test metrics and update the method
@@ -76,20 +80,37 @@ class TestSuiteMethodMetrics
       puts "[LOG] Extracting coverage data from ./data/coverage#{c}.xml"
       doc = Nokogiri::XML(File.open("./data/coverage#{c}.xml"))
 
-      doc.xpath("//package//class//method").each do |method_node|
+      all_method_nodes = doc.xpath("//package//srcfile//class//method")
+
+      # Handle situation where the source is not detected (no srcfile)
+      if all_method_nodes.empty?
+        no_source = true
+        all_method_nodes = doc.xpath("//package//class//method")
+      end
+
+      all_method_nodes.each do |method_node|
 
         method_name = method_node.attr("name")
 
         class_node = method_node.parent
         class_name = class_node.attr("name")
 
-        package_node = class_node.parent
-        package_name = package_node.attr("name")
+        if no_source
+          package_node = class_node.parent
+          package_name = package_node.attr("name")
+        else
+          srcfile_node = class_node.parent
+          srcfile_name = srcfile_node.attr("name")
+
+          package_node = srcfile_node.parent
+          package_name = package_node.attr("name")
+        end
 
         unit_name = "#{package_name}.#{class_name}.#{method_name.rpartition("(").first.strip}"
 
-        # Acquire coverage only if the method of the coverage filei
+        # Acquire coverage only if the method of the coverage file
         if unit_name == method.method_name
+          puts "Adding coverage - #{unit_name}"
           method_node.children.each do |coverage_node|
 
             if coverage_node.attr("type") != nil and
@@ -133,6 +154,7 @@ class TestSuiteMethodMetrics
     puts "[LOG] Removing items that are not valid (no covered tests/no mutation score) (occurs!=3)"
     MethodData.all(:project => @project, :run => @run, :usable => true, :occurs.not => 3).update(:usable => false)
     puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :run => @run, :usable => true).count}"
+
 
   end
 
