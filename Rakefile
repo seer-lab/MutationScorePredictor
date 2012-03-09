@@ -45,6 +45,7 @@ DataMapper::Model.raise_on_save_failure = true
 @memory_for_tests = "2000"  # In megabytes (the memory needed for the test suite)
 @max_cores = "4"
 @javalanche_log_level = "ERROR"
+@javalanche_coverage = false
 @python = "python2"  # Python 2.7 command
 @rake = "rake"  # Rake command
 @classpath = nil  # Acquired through ant/maven extraction
@@ -96,11 +97,8 @@ CLOBBER.include("./#{@libsvm}")
 CLOBBER.include("./#{@emma}")
 CLOBBER.include("./#{@junit_jar}")
 CLOBBER.include("./SingleJUnitTestRunner.jar")
-CLOBBER.include("sqlite3.db")
+CLOBBER.include("./sqlite3.db")
 CLEAN.include("./data")
-CLEAN.include("javalanche.xml")
-CLEAN.include("Makefile")
-CLEAN.include("runMutations.sh")
 
 task :default => :list
 
@@ -135,6 +133,7 @@ task :clean_project do
       rm_f("javalanche.xml")
       rm_f("Makefile")
       rm_f("runMutations.sh")
+      rm_f("analyze.csv")
   end
 end
 
@@ -547,15 +546,23 @@ task :setup_javalanche do
   # Make new target
   content.gsub!("</project>", "")
   content << "    <target name=\"getMutationScores\" depends=\""
-  content << "startHsql,schemaexport,scanProject,scan,createTasks,"
-  content << "createMutationMakefile,createCoverageDataMult,checkCoverageData\">"
+  content << "startHsql,schemaexport,scanProject,scan,createTasks,createMutationMakefile"
+  if @javalanche_coverage
+    content << ",createCoverageDataMult,checkCoverageData\">"
+  else
+    content << "\">"
+  end
   content << "\n        <exec executable=\"make\" spawn=\"false\">"
   content << "\n            <arg value=\"-j#{number_of_tasks}\"/>"
   content << "\n        </exec>"
   content << "\n        <property name=\"javalanche.mutation.analyzers\" value"
   content << "=\"de.unisb.cs.st.javalanche.mutation.analyze.MutationScoreAnalyzer,"
-  content << "de.unisb.cs.st.javalanche.mutation.analyze.TestsTouchedAnalyzer,"
-  content << "de.unisb.cs.st.javalanche.coverage.CoverageAnalyzer\" />"
+  content << "de.unisb.cs.st.javalanche.mutation.analyze.TestsTouchedAnalyzer"
+  if @javalanche_coverage
+    content << ",de.unisb.cs.st.javalanche.coverage.CoverageAnalyzer\" />"
+  else
+    content << "\" />"
+  end
   content << "\n        <antcall target=\"analyzeResults\" />"
   content << "\n        <antcall target=\"stopHsql\" />"
   content << "\n     </target>"
@@ -578,7 +585,11 @@ task :setup_javalanche do
   content << "\nwhile  ! grep -q ALL_RESULTS ${OUTPUTFILE}"
   content << "\ndo"
   content << "\n        echo \"Task ${2} not completed - starting again\""
-  content << "\n        #{create_javalanche_command("runMutationsCoverage")} "
+  if @javalanche_coverage
+    content << "\n        #{create_javalanche_command("runMutationsCoverage")} "
+  else
+    content << "\n        #{create_javalanche_command("runMutations")} "
+  end
   content << "${3} -Dmutation.file=${1}  2>&1 | tee -a $OUTPUTFILE"
   content << "\n        sleep 1"
   content << "\ndone"
