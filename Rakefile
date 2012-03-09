@@ -67,6 +67,16 @@ DataMapper::Model.raise_on_save_failure = true
 @javalanche_branch = "score-analyzer"
 @javalanche_location = "#{@home}/#{@javalanche}"
 @javalanche_project_file = "#{@project_location}javalanche.xml"
+@javalanche_properties = "-Djavalanche.stop.after.first.fail=false " \
+                        "-Djavalanche.enable.arithmetic.replace=false " \
+                        "-Djavalanche.enable.negate.jump=true " \
+                        "-Djavalanche.enable.remove.call=false " \
+                        "-Djavalanche.enable.replace.constant=false " \
+                        "-Djavalanche.enable.replace.variable=false " \
+                        "-Djavalanche.enable.absolute.value=false " \
+                        "-Djavalanche.enable.unary.operator=false " \
+                        "-Djavalanche.enable.monitor.remove=false " \
+                        "-Djavalanche.enable.replace.thread.call=false "
 @libsvm = "libsvm-3.11"
 @libsvm_tar = "libsvm-3.11.tar.gz"
 @libsvm_download = "http://www.csie.ntu.edu.tw/~cjlin/libsvm/libsvm-3.11.tar.gz"
@@ -538,12 +548,14 @@ task :setup_javalanche do
   content.gsub!("</project>", "")
   content << "    <target name=\"getMutationScores\" depends=\""
   content << "startHsql,schemaexport,scanProject,scan,createTasks,"
-  content << "createMutationMakefile\">"
+  content << "createMutationMakefile,createCoverageDataMult,checkCoverageData\">"
   content << "\n        <exec executable=\"make\" spawn=\"false\">"
   content << "\n            <arg value=\"-j#{number_of_tasks}\"/>"
   content << "\n        </exec>"
   content << "\n        <property name=\"javalanche.mutation.analyzers\" value"
-  content << "=\"de.unisb.cs.st.javalanche.mutation.analyze.MutationScoreAnalyzer\" />"
+  content << "=\"de.unisb.cs.st.javalanche.mutation.analyze.MutationScoreAnalyzer,"
+  content << "de.unisb.cs.st.javalanche.mutation.analyze.TestsTouchedAnalyzer,"
+  content << "de.unisb.cs.st.javalanche.coverage.CoverageAnalyzer\" />"
   content << "\n        <antcall target=\"analyzeResults\" />"
   content << "\n        <antcall target=\"stopHsql\" />"
   content << "\n     </target>"
@@ -566,14 +578,7 @@ task :setup_javalanche do
   content << "\nwhile  ! grep -q ALL_RESULTS ${OUTPUTFILE}"
   content << "\ndo"
   content << "\n        echo \"Task ${2} not completed - starting again\""
-  content << "\n        nice -10 ant -f javalanche.xml "
-  content << "-Dprefix=#{@project_prefix} -Dcp=#{@classpath} "
-  content << "-Dtests=#{@project_tests} "
-  content << "-Djavalanche=#{@javalanche_location} "
-  content << "-Djavalanche.maxmemory=#{@memory_for_tests}m "
-  content << "-Djavalanche.log.level=#{@javalanche_log_level} "
-  content << "-Djavalanche.properties.add="
-  content << "-Djavalanche.stop.after.first.fail=false runMutations "
+  content << "\n        #{create_javalanche_command("runMutationsCoverage")} "
   content << "${3} -Dmutation.file=${1}  2>&1 | tee -a $OUTPUTFILE"
   content << "\n        sleep 1"
   content << "\ndone"
@@ -591,7 +596,8 @@ def create_javalanche_command(task)
     command << "-Dcp=#{@classpath} -Dtests=#{@project_tests} "
     command << "-Djavalanche.maxmemory=#{@max_memory}m "
     command << "-Djavalanche.log.level=#{@javalanche_log_level} "
-    command << "-Djavalanche=#{@javalanche_location} #{task}"
+    command << "-Djavalanche=#{@javalanche_location} "
+    command << "-Djavalanche.properties=\"#{@javalanche_properties}\" #{task}"
   return command
 end
 
