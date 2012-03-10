@@ -2,7 +2,7 @@ require 'csv'
 
 class MutationScorer
 
-  attr_reader = :project, :run, :class_file, :method_file
+  attr_accessor :project, :run, :class_file, :method_file
 
   def initialize(project, run, class_file, method_file)
     @project = project

@@ -3,7 +3,7 @@ require 'nokogiri'
 
 class TestSuiteMethodMetrics
 
-  attr_reader = :project, :run
+  attr_accessor :project, :run
 
   def initialize(project, run)
     @project = project

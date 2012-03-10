@@ -1,6 +1,6 @@
 class MetricLibsvmSynthesizer
 
-  attr_reader = :project, :run, :home
+  attr_accessor :project, :run, :home
 
   def initialize(project, run, home)
     @project = project
