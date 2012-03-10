@@ -5,12 +5,15 @@ begin
   require 'nokogiri'
   require 'data_mapper'
   require './mutation_scorer.rb'
+  require './coverage_mutation_scorer.rb'
+  require './extract_mutants.rb'
   require './extract_source_metrics.rb'
   require './metric_libsvm_synthesizer.rb'
   require './test_suite_method_metrics.rb'
   require './class_metric_accumulator.rb'
   require './method_data.rb'
   require './class_data.rb'
+  require './mutant_data.rb'
 rescue LoadError
   abort "Gems missing. Try 'sudo gem install nokogiri libarchive-ruby datamapper'."
 end
@@ -65,7 +68,7 @@ DataMapper::Model.raise_on_save_failure = true
                                   "eclipse_metrics_xml_reader.git"
 @javalanche = "javalanche-0.4"
 @javalanche_download = "git://github.com/kevinjalbert/javalanche.git"
-@javalanche_branch = "score-analyzer"
+@javalanche_branch = nil
 @javalanche_location = "#{@home}/#{@javalanche}"
 @javalanche_project_file = "#{@project_location}javalanche.xml"
 @javalanche_properties = "-Djavalanche.stop.after.first.fail=false " \
@@ -526,9 +529,17 @@ task :get_mutation_scores => [:sqlite3, :install_javalanche,
 
   # Extract mutation scores from Javalanche
   puts "[LOG] Extracting mutation scores from Javalanche results"
-  MutationScorer.new(@project_name, @project_run,
-    "#{@project_location}mutation-files/class-scores.csv",
-    "#{@project_location}mutation-files/method-scores.csv").process
+  if @javalanche_coverage
+    ExtractMutants.new(@project_name, @project_run,
+      "#{@project_location}analyze.csv",
+      "#{@project_location}mutation-files/tests_touched.csv").process
+
+    CoverageMutationScorer.new(@project_name, @project_run).process
+  else
+    MutationScorer.new(@project_name, @project_run,
+      "#{@project_location}mutation-files/class-scores.csv",
+      "#{@project_location}mutation-files/method-scores.csv").process
+  end
 end
 
 # Set up Javalanche
