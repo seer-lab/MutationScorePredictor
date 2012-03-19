@@ -44,6 +44,7 @@ DataMapper::Model.raise_on_save_failure = true
 @project_tests = "org.jgap.AllTests"
 @project_location = "#{@eclipse_workspace}#{@project_name}/"
 @project_test_directory = "#{@project_location}tests/"  # Then prefix occurs
+@project_src_directory = "#{@project_location}src/"  # Then prefix occurs
 @max_memory = "4000"  # In megabytes (the max avalible memory)
 @memory_for_tests = "2000"  # In megabytes (the memory needed for the test suite)
 @max_cores = "4"
@@ -59,6 +60,20 @@ DataMapper::Model.raise_on_save_failure = true
 @mysql_user = "root"
 @mysql_password = "root"
 
+# Enable/Disable/Filter Javalanche mutation operators
+@javalanche_operators = {
+                          "NO_MUTATION" => false,
+                          "REPLACE_CONSTANT" => true,
+                          "NEGATE_JUMP" => false,
+                          "ARITHMETIC_REPLACE" => false,
+                          "REMOVE_CALL" => false,
+                          "REPLACE_VARIABLE" => false,
+                          "ABSOLUTE_VALUE" => false,
+                          "UNARY_OPERATOR" => false,
+                          "REPLACE_THREAD_CALL" => false,
+                          "MONITOR_REMOVE" => false,
+                        }
+
 # Variables related to setup and execution
 @home = Dir.pwd
 @eclipse_project_build = "#{@project_location}build.xml"
@@ -72,15 +87,16 @@ DataMapper::Model.raise_on_save_failure = true
 @javalanche_location = "#{@home}/#{@javalanche}"
 @javalanche_project_file = "#{@project_location}javalanche.xml"
 @javalanche_properties = "-Djavalanche.stop.after.first.fail=false " \
-                        "-Djavalanche.enable.arithmetic.replace=false " \
-                        "-Djavalanche.enable.negate.jump=true " \
-                        "-Djavalanche.enable.remove.call=false " \
-                        "-Djavalanche.enable.replace.constant=false " \
-                        "-Djavalanche.enable.replace.variable=false " \
-                        "-Djavalanche.enable.absolute.value=false " \
-                        "-Djavalanche.enable.unary.operator=false " \
-                        "-Djavalanche.enable.monitor.remove=false " \
-                        "-Djavalanche.enable.replace.thread.call=false "
+  "-Djavalanche.project.source.dir=#{@project_src_directory} "\
+  "-Djavalanche.enable.arithmetic.replace=#{@javalanche_operators["ARITHMETIC_REPLACE"]} " \
+  "-Djavalanche.enable.negate.jump=#{@javalanche_operators["NEGATE_JUMP"]} " \
+  "-Djavalanche.enable.remove.call=#{@javalanche_operators["REMOVE_CALL"]} " \
+  "-Djavalanche.enable.replace.constant=#{@javalanche_operators["REPLACE_CONSTANT"]} " \
+  "-Djavalanche.enable.replace.variable=#{@javalanche_operators["REPLACE_VARIABLE"]} " \
+  "-Djavalanche.enable.absolute.value=#{@javalanche_operators["ABSOLUTE_VALUE"]} " \
+  "-Djavalanche.enable.unary.operator=#{@javalanche_operators["UNARY_OPERATOR"]} " \
+  "-Djavalanche.enable.monitor.remove=#{@javalanche_operators["MONITOR_REMOVE"]} " \
+  "-Djavalanche.enable.replace.thread.call=#{@javalanche_operators["REPLACE_THREAD_CALL"]} "
 @libsvm = "libsvm-3.11"
 @libsvm_tar = "libsvm-3.11.tar.gz"
 @libsvm_download = "http://www.csie.ntu.edu.tw/~cjlin/libsvm/libsvm-3.11.tar.gz"
@@ -314,64 +330,7 @@ desc "Set up the support vector machine for training"
 task :setup_svm => [:sqlite3, :get_mutation_scores, :extract_metrics,
                     :install_emma] do
 
-  completed_tests = Hash.new
-  count = 1
-
-  # Use all the methods that have a mutation score and source metrics
-  MethodData.all(:project => @project_name, :run => @project_run, :usable => true, :tests_touched.not => "").each do |method|
-
-    Dir.chdir(@project_location) do
-
-      testing = ""
-      # Build string of testing concrete tests, while ignoring abstract tests
-      method.tests_touched.split(" ").each do |test|
-
-        # Acquire the actual file path of the test
-        file = "#{@project_test_directory}#{test.rpartition(".").first.gsub(".",File::Separator)}.java"
-
-        # Seems that tests with the '$' still works via a system call (it will
-        #   actually ignore everything after the '$' till the '.')
-        # Check to see if the file is an abstract class, we'll ignore these
-        if system("egrep abstract\\\s+class #{file}")
-          puts "[INFO] Ignoring abstract test case #{test}"
-          next
-        end
-        testing += test.rpartition(".").first + "#" + test.rpartition(".").last + " "
-      end
-
-      # Only execute the coverage test if it hasn't already been executed
-      if completed_tests.has_key?(testing)
-        puts "[LOG] Test coverage already executed, copying old results"
-        cp("#{@home}/data/#{completed_tests[testing]}", "#{@home}/data/coverage#{count}.xml")
-      else
-        emma = "-cp #{@home}/#{@emma}/lib/emma.jar emmarun -r xml"
-        opts = "-Dreport.sort=-method -Dverbosity.level=silent " \
-              "-Dreport.columns=name,line,block -Dreport.depth=method " \
-              "-Dreport.xml.out.file=coverage#{count}.xml " \
-              "-ix +#{@project_prefix}.* "
-        command = "java -Xmx#{@max_memory}m #{emma} -cp " \
-              "#{@home}/#{@junit_jar}:#{@home}/SingleJUnitTestRunner.jar:" \
-              "#{@classpath} #{opts}"
-
-        # Store the output of the JUnit tests
-        output = `#{command} SingleJUnitTestRunner #{testing}`
-
-        # Handle output, it might have errors, nothing or results
-        if output.include?("fail")
-          puts "[ERROR] With Emma JUnit testing"
-          file = File.open("#{@home}/data/coverage#{count}.xml", 'w')
-          file.write("")
-          file.close
-        else
-          mv("coverage#{count}.xml", "#{@home}/data/")
-        end
-
-        # Store this test coverage to reduce number of executions
-        completed_tests[testing] = "coverage#{count}.xml"
-      end
-      count += 1
-    end
-  end
+  run_emma
 
   # Add test metrics to the methods's metrics
   puts "[LOG] Adding testing metrics to method metrics"
@@ -386,6 +345,49 @@ task :setup_svm => [:sqlite3, :get_mutation_scores, :extract_metrics,
   puts "  Used #{number_of_tasks} tasks for mutation testing"
   puts "  Used #{@memory_for_tests}m memory for mutation testing tasks"
   puts "  Used #{@max_memory}m memory for Emma coverage"
+end
+
+# Update support vector machine using the enabled mutation operators given that
+# the setup_svm task was ran using coverage.
+desc "Update up the support vector machine for training (using coverage data)"
+task :update_svm => [:sqlite3, :install_emma] do
+
+  # Check if there is data to update from
+  if MutantData.count(:project => @project_name, :run => @project_run) > 0
+
+    # Extract mutation scores from Javalanche
+    puts "[LOG] Updating mutation scores from Javalanche results"
+    CoverageMutationScorer.new(@project_name, @project_run, @javalanche_operators).process
+
+    # Re-acquire the coverage metrics
+    find_and_set_classpath
+    run_emma
+
+    # Handle the source metrics
+    if MethodData.count(:project => @project_name, :run => @project_run, :mloc.gt => 0) > 0
+      puts "[LOG] Updating the occurs of class/method to 2 (source metrics already exist)"
+      MethodData.all(:project => @project_name, :run => @project_run).update(:occurs => 2)
+      ClassData.all(:project => @project_name, :run => @project_run).update(:occurs => 2)
+    else
+      extract_metrics
+    end
+
+    # Add test metrics to the methods's metrics
+    puts "[LOG] Adding testing metrics to method metrics"
+    TestSuiteMethodMetrics.new(@project_name, @project_run).process
+
+    # Accumulating metrics from methods into the classes
+    puts "[LOG] Accumulating metrics from methods into classes"
+    ClassMetricAccumulator.new(@project_name, @project_run).process
+
+    # Recap on the memory and cores used
+    puts "Resource Summary:"
+    puts "  Used #{number_of_tasks} tasks for mutation testing"
+    puts "  Used #{@memory_for_tests}m memory for mutation testing tasks"
+    puts "  Used #{@max_memory}m memory for Emma coverage"
+  else
+    puts "[ERROR] No mutant data to update the SVM with (run setup_svm with coverage)"
+  end
 end
 
 # Perform cross validation of the project
@@ -534,7 +536,7 @@ task :get_mutation_scores => [:sqlite3, :install_javalanche,
       "#{@project_location}analyze.csv",
       "#{@project_location}mutation-files/tests_touched.csv").process
 
-    CoverageMutationScorer.new(@project_name, @project_run).process
+    CoverageMutationScorer.new(@project_name, @project_run, @javalanche_operators).process
   else
     MutationScorer.new(@project_name, @project_run,
       "#{@project_location}mutation-files/class-scores.csv",
@@ -654,6 +656,68 @@ def number_of_tasks
   end
 
   return task.to_s
+end
+
+def run_emma
+
+  completed_tests = Hash.new
+  count = 1
+
+  # Use all the methods that have a mutation score and source metrics
+  MethodData.all(:project => @project_name, :run => @project_run, :usable => true, :tests_touched.not => "").each do |method|
+
+    Dir.chdir(@project_location) do
+
+      testing = ""
+      # Build string of testing concrete tests, while ignoring abstract tests
+      method.tests_touched.split(" ").each do |test|
+
+        # Acquire the actual file path of the test
+        file = "#{@project_test_directory}#{test.rpartition(".").first.gsub(".",File::Separator)}.java"
+
+        # Seems that tests with the '$' still works via a system call (it will
+        #   actually ignore everything after the '$' till the '.')
+        # Check to see if the file is an abstract class, we'll ignore these
+        if system("egrep abstract\\\s+class #{file}")
+          puts "[INFO] Ignoring abstract test case #{test}"
+          next
+        end
+        testing += test.rpartition(".").first + "#" + test.rpartition(".").last + " "
+      end
+
+      # Only execute the coverage test if it hasn't already been executed
+      if completed_tests.has_key?(testing)
+        puts "[LOG] Test coverage already executed, copying old results"
+        cp("#{@home}/data/#{completed_tests[testing]}", "#{@home}/data/coverage#{count}.xml")
+      else
+        emma = "-cp #{@home}/#{@emma}/lib/emma.jar emmarun -r xml"
+        opts = "-Dreport.sort=-method -Dverbosity.level=silent " \
+              "-Dreport.columns=name,line,block -Dreport.depth=method " \
+              "-Dreport.xml.out.file=coverage#{count}.xml " \
+              "-ix +#{@project_prefix}.* "
+        command = "java -Xmx#{@max_memory}m #{emma} -cp " \
+              "#{@home}/#{@junit_jar}:#{@home}/SingleJUnitTestRunner.jar:" \
+              "#{@classpath} #{opts}"
+
+        # Store the output of the JUnit tests
+        output = `#{command} SingleJUnitTestRunner #{testing}`
+
+        # Handle output, it might have errors, nothing or results
+        if output.include?("fail")
+          puts "[ERROR] With Emma JUnit testing"
+          file = File.open("#{@home}/data/coverage#{count}.xml", 'w')
+          file.write("")
+          file.close
+        else
+          mv("coverage#{count}.xml", "#{@home}/data/")
+        end
+
+        # Store this test coverage to reduce number of executions
+        completed_tests[testing] = "coverage#{count}.xml"
+      end
+      count += 1
+    end
+  end
 end
 
 # Test if the project can run through javalanche with no problems
