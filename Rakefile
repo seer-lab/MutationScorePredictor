@@ -62,14 +62,14 @@ DataMapper::Model.raise_on_save_failure = true
 
 # Enable/Disable/Filter Javalanche mutation operators
 @javalanche_operators = {
-                          "NO_MUTATION" => false,
+                          "NO_MUTATION" => true,
                           "REPLACE_CONSTANT" => true,
-                          "NEGATE_JUMP" => false,
-                          "ARITHMETIC_REPLACE" => false,
-                          "REMOVE_CALL" => false,
-                          "REPLACE_VARIABLE" => false,
-                          "ABSOLUTE_VALUE" => false,
-                          "UNARY_OPERATOR" => false,
+                          "NEGATE_JUMP" => true,
+                          "ARITHMETIC_REPLACE" => true,
+                          "REMOVE_CALL" => true,
+                          "REPLACE_VARIABLE" => true,
+                          "ABSOLUTE_VALUE" => true,
+                          "UNARY_OPERATOR" => true,
                           "REPLACE_THREAD_CALL" => false,
                           "MONITOR_REMOVE" => false,
                         }
@@ -390,10 +390,22 @@ task :update_svm => [:sqlite3, :install_emma] do
   end
 end
 
+# Calculate statistics on the project
+desc "Calculate statistics on the project (correlation, distribution, etc...)"
+task :statistics => [:sqlite3] do
+
+  # Check if there is data to update from
+  if MethodData.count(:project => @project_name, :run => @project_run) > 0
+    puts "[LOG] Calculating statistics of data set"
+    MetricLibsvmSynthesizer.new(@project_name, @project_run, @home).statistics
+  else
+    puts "[ERROR] No data to cacluate statistics on (run setup_svm)"
+  end
+end
+
 # Perform cross validation of the project
 desc "Perform cross validation on the project"
 task :cross_validation => [:sqlite3] do
-
 
   puts "[LOG] Creating .libsvm files"
   MetricLibsvmSynthesizer.new(@project_name, @project_run, @home).process
