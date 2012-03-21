@@ -1,5 +1,3 @@
-require 'statsample'
-
 class MetricLibsvmSynthesizer
 
   attr_accessor :project, :run, :home

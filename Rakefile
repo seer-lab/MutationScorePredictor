@@ -4,6 +4,7 @@ begin
   require 'archive'
   require 'nokogiri'
   require 'data_mapper'
+  require 'statsample'
   require './mutation_scorer.rb'
   require './coverage_mutation_scorer.rb'
   require './extract_mutants.rb'
@@ -15,9 +16,8 @@ begin
   require './class_data.rb'
   require './mutant_data.rb'
 rescue LoadError
-  abort "Gems missing. Try 'sudo gem install nokogiri libarchive-ruby datamapper'."
+  abort "Gems missing. Try 'sudo gem install nokogiri statsample libarchive-ruby datamapper dm-sqlite-adapter'."
 end
-
 
 
 # DataMapper::Logger.new($stdout, :debug)
