@@ -1,0 +1,14 @@
+153,154c153,159
+< 		for(i=0;i<prob.l;i++)
+< 			if(target[i] == prob.y[i])
+---
+> 		FILE * predictionFile;
+> 		predictionFile = fopen ("prediction_file.csv","w");
+> 		fprintf(predictionFile,"ACTUAL,PREDICTED\n");
+> 
+> 		for(i=0;i<prob.l;i++){
+> 			fprintf(predictionFile,"%g,%g\n", prob.y[i], target[i]);
+> 			if(target[i] == prob.y[i]){
+155a161,162
+> 			}
+> 		}

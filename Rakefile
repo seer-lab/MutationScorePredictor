@@ -269,6 +269,10 @@ task :install_libsvm do
     a = Archive.new(@libsvm_tar)
     a.extract
 
+    # Patching svm-train.c
+    puts "[LOG] Patching svm-train.c"
+    sh "patch ./#{@libsvm}/svm-train.c -i svm-train.c.patch"
+
     # Deleting libsvm's tar file
     puts "[LOG] Deleting #{@libsvm_tar}"
     rm @libsvm_tar
@@ -428,10 +432,23 @@ task :cross_validation => [:sqlite3] do
       file.close
 
       puts "[LOG] Performing cross validation"
-      sh "#{@python} easy.py " \
-         "./../../data/#{@project_name}_class_#{@project_run}.libsvm"
-      sh "#{@python} easy.py " \
-         "./../../data/#{@project_name}_method_#{@project_run}.libsvm"
+      class_output = `#{@python} easy.py ./../../data/#{@project_name}_class_#{@project_run}.libsvm`
+      class_values = class_output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
+      method_output = `#{@python} easy.py ./../../data/#{@project_name}_method_#{@project_run}.libsvm`
+      method_values = method_output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
+
+      puts "[LOG] Acquiring detailed results of cross validation"
+      `../svm-train -v #{@cross_validation_folds} -c #{class_values[0]} -g #{class_values[1]} ./#{@project_name}_class_#{@project_run}.libsvm.scale`
+      cp("./prediction_file.csv", "../../data/#{@project_name}_class_#{@project_run}_prediction.csv")
+      `../svm-train -v #{@cross_validation_folds} -c #{method_values[0]} -g #{method_values[1]} ./#{@project_name}_method_#{@project_run}.libsvm.scale`
+      cp("./prediction_file.csv", "../../data/#{@project_name}_method_#{@project_run}_prediction.csv")
+
+      puts "[LOG] Class Accuracy = #{class_values[2]}%"
+      puts "[LOG] Best Class Configuration = -c #{class_values[0]} -g #{class_values[1]}"
+
+      puts "[LOG] Method Accuracy = #{method_values[2]}%"
+      puts "[LOG] Best Method Configuration = -c #{method_values[0]} -g #{method_values[1]}"
+
     end
   end
 end
