@@ -5,6 +5,9 @@
 \usepackage{cite}
 \usepackage{url}
 \usepackage[pdftex]{graphicx}
+\usepackage{pifont}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
 
 
 \begin{document}
@@ -54,7 +57,7 @@ In the Section~\ref{sec:background} we describe the machine learning technique, 
 
 \section{Background}
 \label{sec:background}
-In this section we describe the background techniques and tools used in our research. In particular, we discuss LIBSVM, support vector machine library, Javalanche, a mutation testing tool, the Eclipse Metrics Plugin, used for gathering source code metrics, and EMMA, used for acquiring test suite metrics.
+In this section we describe the background techniques and tools used in our research. In particular, we discuss LIBSVM, support vector machine library, Javalanche, a mutation testing tool, the Eclipse Metrics Plugin, used for gathering source code metrics, and EMMA, used for acquiring test suite metrics. All tools were selected based on several criteria: (1) ability to execute command-line using a script, (2) ability to export output reports and (3) ability to fulfill the needs of our research.
 
 
 \subsection{LIBSVM -- a library for support vector machines}
@@ -68,7 +71,9 @@ In our research we use LIBSVM\footnote{LIBSVM version 3.11}, a SVM library capab
 
 \subsection{Javalanche -- a mutation testing tool for Java}
 \label{subsec:javalanche}
-Mutation testing has previously been described in Section~\ref{sec:introduction}. In our research we use Javalanche\footnote{Javalanche version 0.4}, a mutation testing tool for Java~\cite{SZ09} that applies a subset of the method-level mutation operators to source code. Method-level operators are the most common set of mutation operators applied to procedural programming languages and each method-level mutation defines a syntactic change to an operator, operand or statement in a program. The subset of the method-level operators used by Javalanche are know as the selective method-level mutation operators (see Table~\ref{tab:mutation_operators}). These operators have been empirically shown to be as effective as using the entire set of method-level operators~\cite{OLR+96}.
+Mutation testing has previously been described in Section~\ref{sec:introduction}. In our research we use Javalanche\footnote{Javalanche version 0.4}, a mutation testing tool for Java~\cite{SZ09} that applies a subset of the method-level mutation operators to source code. Method-level operators are the most common set of mutation operators applied to procedural programming languages and each method-level mutation defines a syntactic change to an operator, operand or statement in a program. Javalanche uses a subset of the method-level mutation operators (see Table~\ref{tab:mutation_operators}). These selected operators provide a close approximation of the effectiveness of using the entire set of method-level operators at a reduced cost~\cite{OLR+96}. 
+
+We chose Javalanche for our research because it is customizable and extensible, therefore allowing us to modify Javalanche to calculate unit mutation scores and output a richer set of results. We plan to further take advantage of Javalanche's extensibility in the future by adding object-oriented mutation operators. Other benefits of Javalanche include: full integration with JUnit and the use of mutation schemas to improve performance. 
 
 \begin{table}[!t]
   \centering
@@ -76,7 +81,7 @@ Mutation testing has previously been described in Section~\ref{sec:introduction}
   \begin{tabular}{|l|l|}
     \hline
     \rowcolor[RGB]{169,196,223}
-    \textbf{Name} & \textbf{Description} \\
+    \textbf{Mutation Operator} & \textbf{Description} \\
     \hline REPLACE\_CONSTANT & Replace a constant \\
     \hline NEGATE\_JUMP & Negate jump condition \\
     \hline ARITHMETIC\_REPLACE & Replace arithmetic operator \\
@@ -86,62 +91,94 @@ Mutation testing has previously been described in Section~\ref{sec:introduction}
     \hline UNARY\_OPERATOR & Insert unary operator \\
     \hline
   \end{tabular}
-  \caption{The set of selective method-level mutation operators used in Javalanche~\cite{ OLR+96}}
+  \caption{The set of selective method-level mutation operators used in Javalanche~\cite{OLR+96}}
   \label{tab:mutation_operators}
 \end{table}
 
 
-\subsection{Eclipse Metrics Plugin - a source code metrics tool}
+\subsection{Eclipse Metrics Plugin -- a source code metrics tool}
 \label{subsec:Metrics}
-Source code metrics measure knowledge of a project's source code through the use of code analysis~\cite{SCE05,McCa76,Kan02}. Source code metrics give insight into various aspects of the source code including it's complexity, size, coupling, cohesion as well as object-oriented attributes~\cite{Hend95}.
+Source code metrics measure knowledge of a project's source code through the use of code analysis. Source code metrics give insight into various aspects of the source code including it's complexity, size, coupling, cohesion as well as object-oriented attributes~\cite{SCE05,McCa76,Kan02,HWY09,Hend95,SRD12}.
 
-In our research, we use the Eclipse Metrics Plugin\footnote{Eclipse Metrics Plugin version 1.3.8.20100730-001} to acquire source code metrics of the methods and classes under test. We selected this tool as it provides a comprehensive set of metrics for Java programs. We do not use all of the metrics reported by the Eclipse Metrics Plugin but instead we only use the metrics at the method and class level (see Table~\ref{tab:source_code_metrics})~\cite{Metrics}.
+In our research, we use the Eclipse Metrics Plugin\footnote{Eclipse Metrics Plugin version 1.3.8.20100730-001} to acquire source code metrics of the methods and classes under test~\cite{Metrics}. We selected this tool as it provides a comprehensive set of metrics for Java programs. 
+We use Eclipse Metrics Plugin to collect metrics for feature sets \ding{172} and indirectly \ding{174} and \ding{175} from Table~\ref{tab:metrics}.
 
 \begin{table}[!t]
   \centering
   \rowcolors{2}{gray!30}{gray!20}
-  \begin{tabular}{|l|l|l|}
+  \begin{tabular}{|l|l|l|l|}
     \hline
     \rowcolor[RGB]{169,196,223}
-    \textbf{Abbreviation} & \textbf{Description} & \textbf{Scope} \\
-    \hline MLOC & Method lines of code &  Method \\
-    \hline NBD & Nested block depth &  Method \\
-    \hline VG & McCabe cyclomatic complexity &  Method \\
-    \hline PAR & Number of parameters &  Method \\
-    \hline NORM & Number of overridden methods &  Class \\
-    \hline NOF & Number of attributes &  Class \\
-    \hline NSC]& Number of children &  Class \\
-    \hline DIT & Depth of inheritance tree &  Class \\
-    \hline LCOM & Lack of cohesion of methods &  Class \\
-    \hline NSM & Number of static methods &  Class \\
-    \hline NOM & Number of methods &  Class \\
-    \hline SIX & Specialization index &  Class \\
-    \hline WMC & Weighted method per class &  Class \\
-    \hline NSF & Number of static attributes &  Class \\
+    \textbf{Metrics} & \textbf{Description} & \textbf{Scope} & \textbf{Set} \\
+    
+    % Set 1: Source Code Metrics
+    \hline MLOC & Method lines of code & Method & \ding{172} \\
+    \hline NBD & Nested block depth & Method & \ding{172} \\
+    \hline VG & McCabe cyclomatic complexity & Method & \ding{172} \\
+    \hline PAR & Number of parameters & Method & \ding{172} \\
+    \hline NORM & Number of overridden methods & Class & \ding{172} \\
+    \hline NOF & Number of attributes & Class & \ding{172} \\
+    \hline NSC & Number of children & Class & \ding{172} \\
+    \hline DIT & Depth of inheritance tree & Class & \ding{172} \\
+    \hline LCOM & Lack of cohesion of methods & Class & \ding{172} \\
+    \hline NSM & Number of static methods & Class & \ding{172} \\
+    \hline NOM & Number of methods & Class & \ding{172} \\
+    \hline SIX & Specialization index & Class & \ding{172} \\
+    \hline WMC & Weighted method per class & Class & \ding{172} \\
+    \hline NSF & Number of static attributes & Class & \ding{172} \\
+
+    % Set 2: Coverage Metrics
+    \hline BCOV & Basic blocks covered in code unit & Class & \ding{173} \\
+    \hline BTOT & Total basic blocks for code unit & Class & \ding{173} \\
+
+    % Set 3: Accumulated Source Code Metrics
+    \hline SMLOC & Sum of MLOC of methods & Class & \ding{174} \\
+    \hline SNBD & Sum of NBD of methods & Class & \ding{174} \\
+    \hline SVG & Sum of VG of methods & Class & \ding{174} \\
+    \hline SPAR & Sum of PAR of methods & Class & \ding{174} \\
+    \hline AMLOC & Average of MLOC of methods & Class & \ding{174} \\
+    \hline ANBD & Average of NBD of methods & Class & \ding{174} \\
+    \hline AVG & Average of VG of methods & Class & \ding{174} \\
+    \hline APAR & Average of PAR of methods & Class & \ding{174} \\
+    
+    % Set 4: Accumulated Test Case Metrics
+    \hline STMLOC & Sum of MLOC of test methods & Class/Method & \ding{175} \\
+    \hline STNBD & Sum of NBD of test methods & Class/Method & \ding{175} \\
+    \hline STVG & Sum of VG of test methods & Class/Method & \ding{175} \\
+    \hline STPAR & Sum of PAR of test methods & Class/Method & \ding{175} \\
+    \hline ATMLOC & Average of MLOC of test methods & Class/Method & \ding{175} \\
+    \hline ATNBD & Average of NBD of test methods & Class/Method & \ding{175} \\
+    \hline ATVG & Average of VG of test methods & Class/Method & \ding{175} \\
+    \hline ATPAR & Average of PAR of test methods & Class/Method & \ding{175} \\
+
+    % Set 5: Number of Tests
+    \hline NOT & Number of tests &  Method & \ding{176} \\
+    \hline SNOT & Sum of NOT of methods & Class & \ding{176} \\
+    \hline ANOT & Average of NOT of methods & Class & \ding{176} \\
     \hline
   \end{tabular}
-  \caption{The set of source code metrics measured by the Eclipse Metrics Plugin~\cite{Metrics} that are used in our research.}
-  \label{tab:source_code_metrics}
+  \caption{The set of metrics used in our research. Each set of metrics correspond to a particular feature set (\ding{172}: Source Code Metrics, \ding{173}: Coverage Metrics, \ding{174}: Accumulated Source Code Metrics, \ding{175}: Accumulated Test Case Metrics, \ding{176}: Number of Tests Cases.)}
+  \label{tab:metrics}
 \end{table}
 
 
-\subsection{EMMA - a test suite coverage tool}
+\subsection{EMMA -- a test suite coverage tool}
 \label{subsec:emma}
-Test suite metrics can be gathered using similar technique to those used in the gathering of source code metrics. In fact, since we focus on JUnit test cases (which are Java classes) we can actually use the Eclipse Metrics Plugin to gather some of the test suite metrics. To gather other test suite metrics we use the tool EMMA\footnote{EMMA version 2.0.5312} which is capable of determining the statement and basic block coverage of a test suite~\cite{EMMA}. We include coverage metrics because they are important indicators of test suite effectiveness. 
+Test suite metrics can be gathered using similar technique to those used in the gathering of source code metrics. In fact, since we focus on JUnit test cases (which are Java classes) we can actually use the Eclipse Metrics Plugin to gather some of the test suite metrics. To gather other test suite metrics we use the tool EMMA\footnote{EMMA version 2.0.5312} which is capable of determining the statement and basic block coverage of a test suite~\cite{EMMA}. We use Emma to acquire metrics for feature set \ding{173} and also indirectly \ding{176} from Table~\ref{tab:metrics}.
 
 
 \section{Approach}
 \label{sec:approach}
 We now describe our approach to determining the mutation score of a unit under test based on source code and test suite metrics. In Section~\ref{subsec:training} we outline the process for collecting our initial data and training the SVM (see Figure~\ref{fig:process}) and in Section~\ref{subsec:prediction} we describe how to use the SVM for prediction and cross-validation.
 
-\begin{figure*}[!t]
+\begin{figure}[!t]
   \centering
-  \includegraphics[width=13cm]{figures/process.pdf}
+  \includegraphics[width=7cm]{figures/process.pdf}
   \caption{Our training process -- using source code and test suite metrics to determine mutation score for a unit under test.}
   \label{fig:process}
   \vspace{2mm}
   \hrule
-\end{figure*}
+\end{figure}
 
 
 \subsection{Training}
@@ -155,7 +192,7 @@ The first step of our process is to collect the two types of data required to tr
 
   \item \textbf{Feature Data:} The feature data is comprised of the source code and test suite metrics. To collect the source code metrics of the project we use the Eclipse Metrics Plugin. We collect metrics not only of the units of code under test, but also the unit test cases. After the metrics are collected they are exported to intermediate text files of source code and test suite metrics for methods and classes.
 
-  To collect the additional test suite specific metrics, we acquire the statement coverage and basic block coverage of each unit under test using EMMA. We use EMMA to determine the  coverage of each method by only examining the set of executed tests that Javalanche reported. This information is also exported to an intermediate text file containing the test suite coverage metrics.
+  To collect the additional test suite specific metrics, we acquire the statement coverage and basic block coverage of each unit under test using EMMA. We use EMMA to determine the coverage of each method by only examining the set of executed tests that Javalanche reported. This information is also exported to an intermediate text file containing the test suite coverage metrics.
 \end{enumerate}
 
 Next, we combine all the data contained in the intermediate text files into a database. Since we are interested in both method and class units under test we are not only interested in method-level metrics but also class-level metrics. Therefore, for a given class we aggregate and merge metrics from the each contained methods to generate the class metrics.
@@ -172,10 +209,7 @@ It is also possible to perform cross-validation to assess the accuracy of the ap
 
 \section{Case Study: JGAP}
 \label{sec:case_study}
-We will now discuss the prediction results of our mutation score predictor using an open source Java project.
-
-The project, JGAP\footnote{JGAP version 3.6.1} a genetic algorithm and genetic programming framework for Java, was selected due to its comprehensive JUnit testing suite~\cite{JGAP}. We decided to use an open source project that is large enough to contain many mutants, as well as a mature test suite. Basic source code metrics for JGAP are provided in Table~\ref{tab:jgap_source_stats}. 
-JGAP contains 1348\footnote{JGAP has 1412 JUnit test cases in total, however a small percentage of the tests caused errors in the Javalanche tool and were removed.} usable JUnit test cases. For JGAP Javalanche generated 30022 mutants using the method-level mutation operators (see Table~\ref{tab:mutation_operators}) of which only 16982 were actually covered by JGAP's test suite. We only considered the set of covered mutations in our approach as the mutations not covered contained no associated test cases. Considering only the covered mutants JGAP's test suite killed 12631 mutants resulting in an overall mutation score of 74.38\% (see Table~\ref{tab:jgap_mutation_stats} for more detail).
+A preliminary evaluation of our mutation score predictor was preformed on JGAP\footnote{JGAP version 3.6.1}, an open source genetic algorithm and genetic programming framework for Java, which was selected due to its comprehensive JUnit test suite~\cite{JGAP}. We decided to use an open source project that is large enough to contain many mutants, as well as a mature test suite. Basic source code metrics for JGAP are provided in Table~\ref{tab:jgap_source_stats}. JGAP contains 1387\footnote{JGAP has 1412 JUnit test cases in total, however 25 of the tests caused errors in the Javalanche tool and were removed.} usable JUnit test cases. We only considered the set of covered mutations in our approach as the mutations not covered contained no associated test cases. The results of Javalanche's mutation testing is illustrated in Table~\ref{tab:jgap_mutation_stats}.
 
 \begin{table}[!t]
   \centering
@@ -201,11 +235,12 @@ JGAP contains 1348\footnote{JGAP has 1412 JUnit test cases in total, however a s
     \hline
     \rowcolor[RGB]{169,196,223}
     \textbf{Javalanche Artifacts} & \textbf{\# of Occurrences} \\
-    \hline Valid JUnit Test Cases & 1348\footnotemark[6] \\
-    \hline Generated Mutants & 30022 \\
-    \hline Covered Mutants & 16982 \\
-    \hline Killed Mutants & 12631 \\
-    \hline Overall Mutation Score & 74.38\% \\
+    \hline Valid JUnit Test Cases & 1387\footnotemark[6] \\
+    \hline Generated Mutants & 32031 \\
+    \hline Covered Mutants & 18378 \\
+    \hline Killed Mutants & 13698 \\
+    \hline Overall Mutation Score & 74.53\% \\
+    \hline Mutation Testing Time & 688 minutes and 43 seconds\footnote{Ran on Intel Core i7-870 processor @ 2.93 GHz} \\
     \hline
   \end{tabular}
   \caption{Mutation results of JGAP. The valid test cases are those which successfully ran in Javalanche. The killed mutants and overall mutation score are using the covered mutants.}
@@ -215,22 +250,14 @@ JGAP contains 1348\footnote{JGAP has 1412 JUnit test cases in total, however a s
 
 \subsection{Results}
 \label{subsec:results}
-We first decided to view the distribution of JGAP's mutation scores, which are shown in Figure~\ref{fig:mutation_class_distributions} \& \ref{fig:mutation_method_distributions}. It is clearly obvious that the distribution for both classes and methods are more heavily dense for high mutation scores. Of the 547 method data and 136 class data we collected we found that 19.85\% of the class data and 29.80\% of the method data have a mutation score $\le$ 1\% or $\ge$ 99\%.
+We first decided to view the distribution of JGAP's mutation scores, which are shown in Figure~\ref{fig:mutation_distributions}. It is clearly obvious that the distribution for both classes and methods are more heavily dense for high mutation scores. 
 
 \begin{figure}[!t]
   \centering
-  \includegraphics[width=10cm]{figures/class_distribution.png} 
-  \caption{The mutation score distribution of JGAP's classes that can be used for training.}
-  \label{fig:mutation_class_distributions}
-  \vspace{2mm}
-  \hrule
-\end{figure}
-
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=10cm]{figures/method_distribution.png}
-  \caption{The mutation score distribution of JGAP's methods that can be used for training.}
-  \label{fig:mutation_method_distributions}
+  \includegraphics[width=4.35cm]{figures/class_distribution.png}
+  \includegraphics[width=4.35cm]{figures/method_distribution.png}
+  \caption{The mutation score distribution (in log scale) of JGAP's classes and method that can be used for training.}
+  \label{fig:mutation_distributions}
   \vspace{2mm}
   \hrule
 \end{figure}
@@ -244,17 +271,86 @@ As mentioned in Section~\ref{subsec:training} we categorize the collected data i
     \hline
     \rowcolor[RGB]{169,196,223}
     \textbf{Category} & \textbf{Class Mutation Score} & \textbf{Method Mutation Score} \\
-    \hline low & 0\% -- 61\% & 0\% -- 75\% \\
-    \hline medium & 61\% -- 84\% & 75\% -- 90\% \\
-    \hline high & 84\% -- 100\% & 90\% -- 100\% \\
+    \hline low & 0.00\% -- 62.75\% & 0.00\% -- 66.66\% \\
+    \hline medium & 62.75\% -- 83.25\% & 66.66\% -- 90.90\% \\
+    \hline high & 83.25\% -- 100.00\% & 90.90\% -- 100.00\% \\
     \hline
   \end{tabular}
-  \caption{The mutation score ranges that equally partition the datasets into three categories. These ranges are for the JGAP project and are determined by the 547 collected methods and 136 collect classes.}
+  \caption{The mutation score ranges that equally partition the datasets into three categories. These ranges are for the JGAP project and are determined by the 695 collected methods and 127 collect classes.}
   \label{tab:results_details}
 \end{table}
 
+\begin{figure}[!t]
+  \begin{tikzpicture}[
+  box/.style={draw,rectangle,minimum size=0.5cm,text width=1.25cm,align=center}]
+    \matrix (confusion_matrix) {
+      \node (actual_low_prediction_low) 
+      [box,
+        label=left:\(\mathbf{L'}\),
+        label=above:\(\mathbf{L}\)
+      ] {29, 111};
+      &
+      \node (actual_low_prediction_medium)
+      [box,
+        label=above:\(\mathbf{M}\)
+      ] {8, 48};
+      &
+      \node (actual_low_prediction_medium)
+      [box,
+        label=above:\(\mathbf{H}\)
+      ] {6, 35};
+      \\
+      \node (actual_medium_prediction_low)
+      [box,
+        label=left:\(\mathbf{M'}\)
+      ] {11, 51};
+      &
+      \node (actual_medium_prediction_medium)
+      [box] {21, 113};
+      &
+      \node (actual_medium_prediction_high)
+      [box] {10, 38};
+      \\
+      \node (actual_high_prediction_low)
+      [box,
+        label=left:\(\mathbf{H'}\)
+      ] {9, 74};
+      &
+      \node (actual_high_prediction_medium)
+      [box] {10, 66};
+      &
+      \node (actual_high_prediction_high)
+      [box] {23, 159};
+      \\
+    };
+    \node [left=-.1cm of confusion_matrix,text width=1.5cm,align=right] {\textbf{Actual \\ Value}};
+    \node [above=-.1cm of confusion_matrix] {\textbf{Prediction Value}};
+  \end{tikzpicture}
+  \caption{Confusion matrix for (class, method) mutation score prediction on JGAP using all feature sets from Table~\ref{tab:metrics}. The first value in each cell represents the class value while the second represents the method value. \(\mathbf{L}\) = Low, \(\mathbf{M}\) = Medium and \(\mathbf{H}\) = High.}
+  \label{fig:confusion_matrix}
+  \vspace{2mm}
+  \hrule
+\end{figure}
 
-To evaluate our results we decided to use a 10-fold cross-validation of our datasets due to the small amount of data acquired from this experiment. Our achieved accuracy for JGAP using cross-validation was 49.26\% for class-level mutation scores and 48.08\% for method-level mutation scores. It is also worth mentioning that our achieved accuracy outperforms random (which has an accuracy of 33.33\% given our category distributions) by at least 14.75\%. A further analysis of the acquired metrics used as the feature set in LIBSVM would prove useful in understanding the relevant and important metrics in mutation score prediction.
+To evaluate our results we decided to use a 10-fold cross-validation of our datasets due to the small amount of data acquired from this experiment. Our achieved accuracy for JGAP using cross-validation (with all features from Table~\ref{tab:metrics}) was 57.48\% for class-level mutation scores and 55.11\% for method-level mutation scores. It is also worth mentioning that our achieved accuracy outperforms random (which has an accuracy of 33.33\% given our category distributions) by 24.15\% for classes and 21.78\% for methods. We re-conducted the cross-validation using subsets of our feature set and found that the combination of features slightly improves the prediction accuracy (see Table~\ref{tab:subset_accuracy}). A further analysis of the acquired metrics used as the feature set in LIBSVM would prove useful in understanding the relevant and important metrics in mutation score prediction.
+
+\begin{table}[!t]
+  \centering
+  \rowcolors{2}{gray!30}{gray!20}
+  \begin{tabular}{|l|r|r|}
+    \hline
+    \rowcolor[RGB]{169,196,223}
+    \textbf{Set} & \textbf{Class Accuracy} & \textbf{Method Accuracy} \\
+    \hline \ding{172} & 53.54\% & 48.77\% \\
+    \hline \ding{173} & 49.61\% & 47.63\% \\
+    \hline \ding{174} & 45.67\% & 49.78\% \\
+    \hline \ding{175} & 54.33\% & 33.96\% \\
+    \hline \ding{176} & 44.88\% & 45.47\% \\
+    \hline
+  \end{tabular}
+  \caption{The cross validation (10-folds) accuracy of each feature subset of all the features. The sets reference the features from Table~\ref{tab:metrics}.}
+  \label{tab:subset_accuracy}
+\end{table}
 
 
 \section{Related Work}
@@ -264,11 +360,11 @@ The use of software metrics to locate faults in source code has been well resear
 
 \section{Conclusions \& Future Work}
 \label{sec:conclusions_future_work}
-Our technique for predicting mutation score using source code and test suite metrics achieved an accuracy of 49.26\% and 48.08\% for classes and methods respectively -- outperforming random. These results have not been optimized and we believe that with further enhancements and a more tailored feature set we may be able to increase our prediction accuracy. 
+Our technique for predicting mutation score using source code and test suite metrics achieved an accuracy of 57.48\% and 55.11\% for classes and methods respectively -- outperforming random. These results have not been optimized and we believe that with further enhancements and a more tailored feature set we may be able to increase our prediction accuracy. 
 
-In the future, we plan to evaluate more open source projects using our prediction technique to better assess the prediction accuracy. Also, we would like to consider projects with more mutation scores to explore the variation in prediction accuracy between strong and weak test suites. 
+Our approach currently only used a subset of the traditional mutation operators. Obviously there are some limitations of this, we are missing a whole class of mutation operators that operator on object-oriented aspects of the system under test. We plan to address this issue in future work by extending Javalanche to include more mutation operators.
 
-Currently we have applied our predictive technique to a single open source project -- JGAP. Another future direction we plan to investigate is whether cross-project models are valid for mutation score prediction. 
+Currently we have applied our predictive technique to a single open source project -- JGAP. Additionally, we performed training and prediction from the same project. As stated by Kitchenham and Mendes ``It is invalid to select one or two datasets to `prove' the validity of a new technique because we cannot be sure that, of the many published datasets, those chosen are the only ones that favour the new technique''~\cite{KM09}. Thus, we plan to evaluate more open source projects using our prediction technique to better assess the prediction accuracy. With more data we plan to investigate whether cross-project models are valid for mutation score prediction. We would like to consider projects with more mutation scores to explore the variation in prediction accuracy between strong and weak test suites. Finally by considering more projects we can also explore the validity of the proposed technique.
 
 
 \bibliographystyle{IEEEtran}
