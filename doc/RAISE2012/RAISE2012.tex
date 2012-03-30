@@ -16,6 +16,7 @@
 \widowpenalty = 10000
 \displaywidowpenalty = 10000
 
+\def\IEEEbibitemsep{0pt plus .5pt}
 
 \begin{document}
 
@@ -43,14 +44,14 @@ Mutation testing has traditionally been used to evaluate the effectiveness of te
 
 \section{Introduction}
 \label{sec:introduction}
-Mutation testing has traditionally been used as a coverage technique to evaluate the effectiveness of test suites and provide confidence in the testing process~\cite{DLS78, OAL06, JH10}. For over 30 years, mutation testing has been applied to software written in programming languages including C~\cite{DM96, JH08}, Fortran~\cite{KO91} and Java~\cite{MKO02, BCD06}. Furthermore, mutation testing has also been applied to non-programming artifacts such as formal specification languages~\cite{ABM98} and spreadsheets~\cite{AE09}.
+Mutation testing has traditionally been used as a coverage technique to evaluate the effectiveness of test suites and provide confidence in the testing process~\cite{DLS78, JH10}. For over 30 years, mutation testing has been applied to software written in programming languages including C~\cite{DM96, JH08}, Fortran~\cite{KO91} and Java~\cite{MKO02, BCD06}. Furthermore, mutation testing has also been applied to non-programming artifacts such as formal specification languages~\cite{ABM98} and spreadsheets~\cite{AE09}.
 
-Mutation testing uses a set of \emph{mutation operators} to generate faulty versions of a program called \emph{mutants}. Mutation operators are created based on an existing fault taxonomy and each operator usually corresponds to a specific type of fault. A mutant is identical to the original program except that it contains a single mutation -- ``\emph{a single syntactic change that is made to a program statement.}''~\cite{KO91}. A test suite is evaluated against a set of mutants to determine the \emph{mutation score}. The mutation score is defined as the percentage of non-equivalent mutants that are detected (\emph{killed}) by a test suite. The better a test suite, the more mutants will be killed and thus the higher the mutation score.
+Mutation testing uses a set of \emph{mutation operators} to generate faulty versions of a program called \emph{mutants}. Mutation operators are created based on an existing fault taxonomy and each operator usually corresponds to a specific type of fault. A test suite is evaluated against a set of mutants to determine the \emph{mutation score}. The mutation score is defined as the percentage of non-equivalent mutants that are detected (\emph{killed}) by a test suite. The better a test suite, the more mutants will be killed and thus the higher the mutation score.
 
-A major drawback of mutation testing is that even a small program may yield hundreds or thousands of mutants -- potentially making the process cost prohibitive in comparison to other coverage metrics such as statement or branch coverage. Three approaches have been proposed in the literature to improve mutation testing performance and scalability~\cite{OU00}:
+A major drawback of mutation testing is that even a small program may yield hundreds or thousands of mutants -- potentially making the process cost prohibitive in comparison to other coverage metrics. Three approaches have been proposed to improve mutation testing performance and scalability~\cite{OU00}:
 
 \begin{enumerate}
-  \item \textbf{``Do fewer'' approach:} this category of optimizations aim to decrease the computational cost of mutation testing by reducing the number of mutants that a test suite is evaluated against. The most popular example from this category is selective mutation -- the use of a subset of mutation operators that have been empirically shown to be as effective as using an entire set of operators~\cite{OLR+96}. Another example of a ``do fewer'' approach is to randomly sample mutants~\cite{Won93}.
+  \item \textbf{``Do fewer'' approach:} this category of optimizations aim to decrease the computational cost of mutation testing by reducing the number of mutants that a test suite is evaluated against. The most popular example from this category is selective mutation -- the use of a subset of mutation operators that have been empirically shown to be as effective as using an entire set of operators~\cite{OLR+96}.
 
   \item \textbf{``Do smarter'' approach:} this category of optimizations aim to decrease the cost of mutation testing by improving the actual mutation testing technique. For example, weak mutation \emph{``...is an approximation technique that compares the internal states of mutant and original program immediately after execution of the mutated portion of the code (instead of comparing the program output)''}~\cite{OU00}.
 
@@ -59,34 +60,32 @@ A major drawback of mutation testing is that even a small program may yield hund
 
 As an alternative to the above approaches, we propose a ``do fewer and smarter'' technique for mutation testing at the unit level.  When mutation testing is used for the creation or improvement of a test suite,  the test suite will often have to be applied to the mutants in an iterative fashion as tests are added, removed and modified. Furthermore, the effects on the mutation score after each iteration have to be observed. We propose to replace at least some of the mutation testing of intermediate tests with mutation score prediction and thus decrease the number of mutants that have to be evaluated using a test suite. Our proposed approach uses machine learning to predict the mutation score based on a combination of source code and test suite metrics of the code unit under test.
 
-Next, in Section~\ref{sec:background} we describe the machine learning technique, the mutation testing tool and the metrics gathering tools used in our research. In Section~\ref{sec:approach} we describe our overall approach to mutant score prediction. We also discuss the integration of the tools described in Section~\ref{sec:background}, into our approach. In Section~\ref{sec:case_study} we apply our approach to an open source project and discuss the effectiveness of our prediction based on this preliminary evaluation. Finally, in Sections~\ref{sec:related_work}~\&~\ref{sec:conclusions_future_work} we discuss related work, conclusions, and future work.
+Next, in Section~\ref{sec:background} we describe the machine learning technique, the mutation testing tool and the metrics gathering tools used in our research. In Section~\ref{sec:approach} we describe our overall approach to mutant score prediction. In Section~\ref{sec:case_study} we apply our approach to an open source project and discuss the effectiveness of our prediction based on this preliminary evaluation. Finally, in Sections~\ref{sec:related_work}~\&~\ref{sec:conclusions_future_work} we discuss related work, conclusions, and future work.
 
 
 \section{Background}
 \label{sec:background}
-In this section we describe the background techniques and tools used in our research. In particular, we discuss LIBSVM (a support vector machine library), Javalanche (a mutation testing tool), the Eclipse Metrics Plugin (used for gathering source code metrics), and EMMA (used for acquiring test suite metrics). All tools were selected based on three criteria: (1) ability to execute command-line using a script, (2) ability to export output reports and (3) ability to fulfill the needs of our research.
+In this section we describe the background techniques and tools used in our research. All tools were selected based on the ability to execute command-line using a script, the ability to export output reports, and the ability to fulfill the needs of our research.
 
 
-\subsection{LIBSVM -- a library for support vector machines}
+\subsection{LIBSVM -- A Library for Support Vector Machines}
 \label{subsec:libsvm}
 A support vector machine (SVM) is an example of a linear discrimination machine learning technique and assumes that ``...\emph{instances of a class are linearly separable from instances of other classes}''~\cite{ALP04}. A SVM is capable of learning how a set of features inform the classification of a data item. It can also be trained on known data items (in which the features and category are present), and then used to predict the category of  unknown data items (in which only the features are present).
 
-Traditionally, SVMs have been used for two-group classification problems~\cite{CV95} but have also been generalized to \emph{n}-group classification problems. In a two-group classification problem an optimal separating hyperplane is identified that divides the set of data into two groups based on a set of support vectors (i.e., features). In other words, the goal is to maximize the distance from the closest data points on both sides of the hyperplane to the hyperplane itself~\cite{ALP04}.
-
-In our research we use LIBSVM (version 3.11), a SVM library capable of solving \emph{n}-group classification problems~\cite{CL11}.
+Traditionally, SVMs have been used for two-group classification problems~\cite{CV95} but have also been generalized to \emph{n}-group classification problems. In our research we use LIBSVM (version 3.11), a SVM library capable of solving \emph{n}-group classification problems~\cite{CL11}.
 
 
-\subsection{Javalanche -- a mutation testing tool for Java}
+\subsection{Javalanche -- A Mutation Testing Tool for Java}
 \label{subsec:javalanche}
 Mutation testing has previously been described in Section~\ref{sec:introduction}. In our research we use Javalanche (version 0.4), a mutation testing tool for Java~\cite{SZ09} that applies a subset of the method-level mutation operators. Method-level operators are the most common set of mutation operators applied to procedural programming languages and each method-level mutation defines a syntactic change to an operator, operand or statement in a program. Javalanche uses a subset of the method-level mutation operators (replace constant, negate jump, arithmetic replace, remove call, replace variable, absolute value, unary operator). These selected operators provide a close approximation of the effectiveness of using the entire set of method-level operators at a reduced cost~\cite{OLR+96}.
 
 We chose Javalanche for our research because it is customizable and extensible, therefore allowing us to modify Javalanche to calculate unit mutation scores and output a richer set of results. We plan to further take advantage of Javalanche's extensibility in the future by adding object-oriented mutation operators. Other benefits of Javalanche include: full integration with JUnit and the use of mutation schemas to improve performance.
 
-\subsection{Eclipse Metrics Plugin -- a source code metrics tool}
+\subsection{Eclipse Metrics Plugin -- A Source Code Metrics Tool}
 \label{subsec:Metrics}
 Source code metrics give insight into various aspects of the source code including it's complexity, size, coupling, cohesion as well as object-oriented attributes~\cite{SCE05,McCa76,Kan02,HWY09,Hend95,SRD12}. In our research, we use the Eclipse Metrics Plugin (version 1.3.8.20100730-001) to acquire source code metrics of the method- and class-level code unit under test~\cite{Metrics}. We selected this tool as it provides a comprehensive set of metrics for Java programs (see feature sets \ding{172}~\&~\ding{174} from Table~\ref{tab:metrics}).
 
-\begin{table}[!t]
+\begin{table}[!b]
   \caption{The set of metrics used in our research. Organized by feature set (\ding{172}: Source Code Metrics, \ding{173}: Coverage Metrics, \ding{174}: Accumulated Source Code Metrics, \ding{175}: Accumulated Test Case Metrics)}
   \centering
   \rowcolors{2}{gray!30}{gray!20}
@@ -126,21 +125,21 @@ Source code metrics give insight into various aspects of the source code includi
     \hline APAR & Average PAR of methods & Class & \ding{174} \\
 
     % Set 4: Accumulated Test Case Metrics
-    \hline STMLOC & Sum MLOC of test methods & Class/Method & \ding{175} \\
-    \hline STNBD & Sum NBD of test methods & Class/Method & \ding{175} \\
-    \hline STVG & Sum VG of test methods & Class/Method & \ding{175} \\
-    \hline STPAR & Sum PAR of test methods & Class/Method & \ding{175} \\
-    \hline ATMLOC & Average MLOC of test methods & Class/Method & \ding{175} \\
-    \hline ATNBD & Average NBD of test methods & Class/Method & \ding{175} \\
-    \hline ATVG & Average VG of test methods & Class/Method & \ding{175} \\
-    \hline ATPAR & Average PAR of test methods & Class/Method & \ding{175} \\
+    \hline STMLOC & Sum MLOC of test methods & Both & \ding{175} \\
+    \hline STNBD & Sum NBD of test methods & Both & \ding{175} \\
+    \hline STVG & Sum VG of test methods & Both & \ding{175} \\
+    \hline STPAR & Sum PAR of test methods & Both & \ding{175} \\
+    \hline ATMLOC & Average MLOC of test methods & Both & \ding{175} \\
+    \hline ATNBD & Average NBD of test methods & Both & \ding{175} \\
+    \hline ATVG & Average VG of test methods & Both & \ding{175} \\
+    \hline ATPAR & Average PAR of test methods & Both & \ding{175} \\
     \hline
   \end{tabular}
   \label{tab:metrics}
 \end{table}
 
 
-\subsection{EMMA -- a test suite coverage tool}
+\subsection{EMMA -- A Test Suite Coverage Tool}
 \label{subsec:emma}
 Test suite metrics can be gathered using similar technique to those used in the gathering of source code metrics. In fact, since we focus on JUnit test cases (which are Java classes) we can actually use the Eclipse Metrics Plugin to gather some of the test suite metrics (see feature set \ding{175} from Table~\ref{tab:metrics}). To gather other test suite metrics we use EMMA (version 2.0.5312) which is capable of determining the statement and basic block coverage of a test suite~\cite{EMMA}. We use EMMA to acquire metrics for feature set \ding{173} from Table~\ref{tab:metrics}.
 
@@ -151,7 +150,7 @@ We now describe our SVM approach to determining the mutation score of a unit und
 
 \begin{figure}[!t]
   \centering
-  \includegraphics[width=8.5cm]{figures/process.pdf}
+  \includegraphics[width=7cm]{figures/process.pdf}
   \caption{Our SVM training process.}
   \label{fig:process}
 \end{figure}
@@ -179,7 +178,7 @@ Once we have trained the SVM, we can then use the SVM for prediction. We can pre
 
 \section{Case Study: JGAP}
 \label{sec:case_study}
-\begin{table}[!t]
+\begin{table}[!b]
   \caption{The amount of classes, methods, lines of code (LOC), and JUnit test cases in the JGAP repository}
   \centering
   \rowcolors{2}{gray!30}{gray!20}
@@ -214,7 +213,7 @@ We gathered 695 method-level data points and 127 class-level data points from JG
       xlabel=Mutation Score (\%),
       ylabel=\# of Classes,
       width=8.5cm,
-      height=8cm]
+      height=5.5cm]
       \addplot[ybar,fill=black] coordinates {
 (0, 7) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) (7, 1) (8, 0) (9, 0) (10, 0) (11, 0) (12, 0) (13, 0) (14, 0) (15, 0) (16, 0) (17, 0) (18, 1) (19, 1) (20, 0) (21, 0) (22, 0) (23, 0) (24, 0) (25, 0) (26, 0) (27, 0) (28, 0) (29, 1) (30, 1) (31, 0) (32, 0) (33, 3) (34, 0) (35, 0) (36, 1) (37, 0) (38, 0) (39, 0) (40, 0) (41, 1) (42, 2) (43, 0) (44, 0) (45, 0) (46, 2) (47, 1) (48, 1) (49, 5) (50, 0) (51, 1) (52, 3) (53, 1) (54, 0) (55, 0) (56, 1) (57, 2) (58, 2) (59, 1) (60, 0) (61, 1) (62, 3) (63, 1) (64, 3) (65, 0) (66, 1) (67, 2) (68, 2) (69, 0) (70, 0) (71, 4) (72, 5) (73, 0) (74, 4) (75, 5) (76, 3) (77, 1) (78, 2) (79, 3) (80, 0) (81, 2) (82, 3) (83, 2) (84, 2) (85, 1) (86, 5) (87, 4) (88, 2) (89, 1) (90, 1) (91, 4) (92, 3) (93, 0) (94, 1) (95, 0) (96, 1) (97, 0) (98, 1) (99, 15)
       };
@@ -235,7 +234,7 @@ We gathered 695 method-level data points and 127 class-level data points from JG
       xlabel=Mutation Score (\%),
       ylabel=\# of Methods,
       width=8.5cm,
-      height=8cm]
+      height=5.5cm]
       \addplot[ybar,fill=black] coordinates {
 (0, 42) (1, 0) (2, 0) (3, 0) (4, 0) (5, 0) (6, 0) (7, 0) (8, 1) (9, 0) (10, 0) (11, 1) (12, 0) (13, 0) (14, 0) (15, 0) (16, 0) (17, 0) (18, 2) (19, 4) (20, 1) (21, 0) (22, 1) (23, 0) (24, 6) (25, 0) (26, 1) (27, 2) (28, 1) (29, 1) (30, 1) (31, 1) (32, 0) (33, 11) (34, 1) (35, 0) (36, 3) (37, 1) (38, 1) (39, 12) (40, 1) (41, 1) (42, 6) (43, 6) (44, 2) (45, 1) (46, 2) (47, 1) (48, 1) (49, 40) (50, 0) (51, 4) (52, 4) (53, 1) (54, 2) (55, 3) (56, 1) (57, 5) (58, 1) (59, 22) (60, 2) (61, 3) (62, 4) (63, 1) (64, 7) (65, 4) (66, 17) (67, 4) (68, 5) (69, 6) (70, 10) (71, 5) (72, 7) (73, 5) (74, 21) (75, 3) (76, 6) (77, 9) (78, 6) (79, 30) (80, 6) (81, 10) (82, 12) (83, 23) (84, 8) (85, 6) (86, 14) (87, 14) (88, 4) (89, 10) (90, 3) (91, 5) (92, 5) (93, 3) (94, 2) (95, 0) (96, 0) (97, 1) (98, 2) (99, 214)
       };
@@ -261,10 +260,10 @@ We gathered 695 method-level data points and 127 class-level data points from JG
   \label{tab:results_details}
 \end{table}
 
-Due to the small amount of data acquired from this experiment we decided to evaluate our results by performing a 10-fold cross-validation of our datasets. Effectively, this divides our dataset into \emph{10} equal-sized partitions and the SVM trains on $\emph{9}$ sets and predicts on the last. This process is repeated \emph{10} times where a different partition is selected for prediction each time. Finally all the individual prediction accuracies are tallied and averaged for a cross-validation accuracy of \emph{10}-folds. Our achieved cross-validation accuracy of JGAP (with all features from Table~\ref{tab:metrics}) was 58.27\% for class mutation scores and 54.82\% for method mutation scores. Figure~\ref{fig:confusion_matrix} illustrates a confusion matrix of the predicted values created from the SVM data for our three categories. It is also worth mentioning that our achieved accuracy outperforms random (which has an accuracy of 33.33\% given our category distributions) by 24.94\% for classes and 21.49\% for methods.
+Due to the small amount of data acquired from this experiment we decided to evaluate our results by performing a 10-fold cross-validation of our datasets. Our achieved cross-validation accuracy of JGAP (with all features from Table~\ref{tab:metrics}) was 58.27\% for class mutation scores and 54.82\% for method mutation scores. Figure~\ref{fig:confusion_matrix} illustrates a confusion matrix of the predicted values created from the SVM data for our three categories. It is also worth mentioning that our achieved accuracy outperforms random (which has an accuracy of 33.33\% given our category distributions) by 24.94\% for classes and 21.49\% for methods.
 
 \begin{figure}[!t]
-  \small
+  \scriptsize
   \begin{tikzpicture}[
   box/.style={draw,rectangle,minimum size=0.5cm,text width=1.25cm,align=center}]
     \matrix (confusion_matrix) {
