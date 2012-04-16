@@ -8,40 +8,39 @@ class MetricLibsvmSynthesizer
     @home = home
   end
 
-  def determine_ranges(data_set)
+  def make_libsvm(data_set, bounds)
 
-    # Figure the ranges out
-    items_per_range = data_set.count / 3
-    lower_break = data_set[items_per_range].mutation_score_of_covered_mutants
-    upper_break = data_set[2*items_per_range].mutation_score_of_covered_mutants
-
-    return lower_break, upper_break
-  end
-
-  def make_libsvm(type, data_set, lower_break, upper_break)
+    # Split up data into sections
+    sections = []
+    min_size = 0
+    method_sections = []
+    bounds.each do |bound|
+      sections << data_set.all(:mutation_score_of_covered_mutants.gte => bound[0], :mutation_score_of_covered_mutants.lte => bound[1])
+      ap sections.last.count
+      min_size = sections.last.count if min_size == 0 || sections.last.count < min_size
+    end
 
     content = ""
-    data_set.each do |item|
 
-      if item.mutation_score_of_covered_mutants <= lower_break
-        content += "1 "
-      elsif item.mutation_score_of_covered_mutants <= upper_break
-        content += "2 "
-      else
-        content += "3 "
-      end
+    section_count = 0
+    sections.each do |section|
+      section_count += 1
+      section.sample(min_size).each do |item|
 
-      property_count = 0
-      data_set.properties.each do |property|
+        content += section_count.to_s + " "
 
-        field = property.instance_variable_name[1..-1]
+        property_count = 0
+        data_set.properties.each do |property|
 
-        if not ignore_field(field)
-          property_count += 1
-          content += "#{property_count}:#{item.send(field)} "
+          field = property.instance_variable_name[1..-1]
+
+          if not ignore_field(field)
+            property_count += 1
+            content += "#{property_count}:#{item.send(field)} "
+          end
         end
+        content += "\n"
       end
-      content += "\n"
     end
     return content
   end
@@ -51,13 +50,19 @@ class MetricLibsvmSynthesizer
     class_data = ClassData.all(:project => @project, :run => @run, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
     method_data = MethodData.all(:project => @project, :run => @run, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
 
-    # Determine ranges for class and method data
-    class_lower_break, class_upper_break = determine_ranges(class_data)
-    method_lower_break, method_upper_break = determine_ranges(method_data)
+    # Use bound values
+    class_bounds = []
+    class_bounds << [0.0, 0.50]
+    class_bounds << [0.50, 0.90]
+    class_bounds << [0.90, 1.00]
+    method_bounds = []
+    method_bounds << [0.0, 0.50]
+    method_bounds << [0.50, 0.90]
+    method_bounds << [0.90, 1.00]
 
     # Create file contents with appropriate categories
-    class_libsvm = make_libsvm("class", class_data, class_lower_break, class_upper_break)
-    method_libsvm = make_libsvm("method", method_data, method_lower_break, method_upper_break)
+    class_libsvm = make_libsvm(class_data, class_bounds)
+    method_libsvm = make_libsvm(method_data, method_bounds)
 
     # Write out .libsvm files
     file = File.open("#{@home}/data/#{@project}_class_#{@run}.libsvm", 'w')
@@ -77,7 +82,7 @@ class MetricLibsvmSynthesizer
     puts "[LOG] Calculating distributions"
     distribution("class", class_data)
     distribution("method", method_data)
-  
+
     puts "[LOG] Calculating correlation matrix"
     # Calculate the correlation matrix
     correlation("class", class_data)
