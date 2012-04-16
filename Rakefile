@@ -728,8 +728,14 @@ def run_emma
               "#{@home}/#{@junit_jar}:#{@home}/SingleJUnitTestRunner.jar:" \
               "#{@classpath} #{opts}"
 
+        # Store tests in txt file to avoid 'arguments too long' error
+        file = File.open("tests#{count}.txt", 'w')
+        file.write(testing)
+        file.close
+
         # Store the output of the JUnit tests
-        output = `#{command} SingleJUnitTestRunner #{testing}`
+        output = `#{command} SingleJUnitTestRunner $(cat tests#{count}.txt)`
+        rm("tests#{count}.txt")
 
         # Handle output, it might have errors, nothing or results
         if output.include?("fail")

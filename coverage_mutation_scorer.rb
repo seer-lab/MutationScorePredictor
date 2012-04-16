@@ -3,14 +3,14 @@ require 'set'
 
 class CoverageMutationScorer
 
-  attr_accessor :project, :run, :operators, :code_units_mutation_data, :method_ocurrence
+  attr_accessor :project, :run, :operators, :code_units_mutation_data, :method_occurrence
 
   def initialize(project, run, operators)
     @project = project
     @run = run
     @operators = operators
     @code_units_mutation_data = Hash.new
-    @method_ocurrence = Hash.new
+    @method_occurrence = Hash.new
   end
 
   class CodeUnitMutationData
@@ -75,14 +75,18 @@ class CoverageMutationScorer
     # Make list of method names that are overloaded
     mutants = MutantData.all(:project => @project, :run => @run)
 
-    # Find the number of occurences for each method (excluding params)
+    # Find the number of occurrences for each method (excluding params)
     mutants.all(:fields => [:method_name], :unique => true).each do |mutant|
+
+      # Acquire short method name (excluding param's if available )
       short_method_name = mutant.method_name.rpartition('(').first
-      value = @method_ocurrence[short_method_name]
+      short_method_name = mutant.method_name if short_method_name == ""
+
+      value = @method_occurrence[short_method_name]
       if value == nil
-        @method_ocurrence[short_method_name] = 1
+        @method_occurrence[short_method_name] = 1
       else
-        @method_ocurrence[short_method_name] = value + 1
+        @method_occurrence[short_method_name] = value + 1
       end
     end
 
@@ -103,10 +107,12 @@ class CoverageMutationScorer
   def collect_class_method_data(mutants)
     mutants.each do |mutant|
 
+      # Acquire short method name (excluding param's if available )
       short_method_name = mutant.method_name.rpartition('(').first
+      short_method_name = mutant.method_name if short_method_name == ""
 
       # Skip mutants that are part of an overloaded method
-      if @method_ocurrence[short_method_name] > 1
+      if @method_occurrence[short_method_name] > 1
         next
       end
 
