@@ -42,6 +42,7 @@ DataMapper::Model.raise_on_save_failure = true
 @project_name = "jgap_3.6.1_full"
 @project_prefix = "org.jgap"
 @project_tests = "org.jgap.AllTests"
+@project_builder = "ant"  # Project uses "ant" or "maven"
 @project_location = "#{@eclipse_workspace}#{@project_name}/"
 @project_test_directory = "#{@project_location}tests/"  # Then prefix occurs
 @project_src_directory = "#{@project_location}src/"  # Then prefix occurs
@@ -52,7 +53,7 @@ DataMapper::Model.raise_on_save_failure = true
 @javalanche_coverage = false
 @python = "python2"  # Python 2.7 command
 @rake = "rake"  # Rake command
-@classpath = nil  # Acquired through ant/maven extraction
+@classpath = ""  # Acquired through ant/maven extraction
 
 # Variables related to Javalanche's database usage
 @use_mysql = false
@@ -655,16 +656,26 @@ def create_javalanche_command(task)
 end
 
 def find_and_set_classpath
-  puts "[LOG] Acquiring classpath of project by running ant/maven 'test' task"
+  puts "[LOG] Acquiring classpath of project by running ant/maven 'clean' then 'test' tasks"
   Dir.chdir(@project_location) do
-    # Acquire classpath from 'ant test' or 'mvn test' command using a Regex
-    if File.exists?("#{@project_location}build.xml")  # Ant build file
+    if @project_builder == "ant"
+      `ant clean`
       output = `ant -v test`
-      @classpath = output.scan(/-classpath'\s*\[junit\]\s*'(.*)'/)[0][0]
-    elsif File.exists?("#{@project_location}pom.xml")  # Maven pom file
-      puts "[TODO] Maven classpath extraction is not done yet"
+
+      # Take the longest classpath (the correct one)
+      output.scan(/-classpath'\s*\[junit\]\s*'(.*)'/).each do |match|
+        @classpath = match[0] if match[0].length > @classpath.length
+      end
+    elsif @project_builder == "maven"
+      `mvn clean`
       output = `mvn -X test`
-      # @classpath = output.scan()[0][0]
+
+      # Take the longest classpath (the correct one)
+      output.scan(/-classpath\s(.*?)\s/).each do |match|
+        @classpath = match[0] if match[0].length > @classpath.length
+      end
+    else
+      puts "[WARN] Using @classpath specified in Rakefile"
     end
   end
 end
