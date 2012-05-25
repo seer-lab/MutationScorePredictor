@@ -181,7 +181,6 @@ task :install_javalanche do
   # Perform install only if Javalanche directory doesn't exist
   if not File.directory?(@javalanche)
 
-
     puts "[LOG] Cloning Javalanche"
     sh "git clone #{@javalanche_download}"
 
@@ -516,6 +515,12 @@ end
 
 # Creates the build file needed to execute the headless Eclipse metrics plugin
 task :setup_metrics_build_file do
+
+  # If no build file exists just make one
+  if !File.exist?(@eclipse_project_build + ".backup")
+    puts "[WARN] No build.xml file was found, creating an empty one"
+    FileUtils.touch(@eclipse_project_build)
+  end
 
   # Create a backup of the build file
   puts "[LOG] Backing up project's build file"
