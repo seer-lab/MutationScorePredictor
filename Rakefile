@@ -1,22 +1,23 @@
 begin
-  require 'rake/clean'
-  require 'open-uri'
-  require 'archive'
-  require 'nokogiri'
-  require 'data_mapper'
-  require 'statsample'
-  require './mutation_scorer.rb'
-  require './coverage_mutation_scorer.rb'
-  require './extract_mutants.rb'
-  require './extract_source_metrics.rb'
-  require './metric_libsvm_synthesizer.rb'
-  require './test_suite_method_metrics.rb'
-  require './class_metric_accumulator.rb'
-  require './method_data.rb'
-  require './class_data.rb'
-  require './mutant_data.rb'
+  require "rake/clean"
+  require "open-uri"
+  require "archive"
+  require "nokogiri"
+  require "data_mapper"
+  require "awesome_print"
+  require "statsample"
+  require "./mutation_scorer.rb"
+  require "./coverage_mutation_scorer.rb"
+  require "./extract_mutants.rb"
+  require "./extract_source_metrics.rb"
+  require "./metric_libsvm_synthesizer.rb"
+  require "./test_suite_method_metrics.rb"
+  require "./class_metric_accumulator.rb"
+  require "./method_data.rb"
+  require "./class_data.rb"
+  require "./mutant_data.rb"
 rescue LoadError
-  abort "Gems missing. Try 'sudo gem install nokogiri statsample libarchive-ruby datamapper dm-sqlite-adapter'."
+  abort "Gems missing. Try use `bundle install`."
 end
 
 
@@ -98,9 +99,9 @@ DataMapper::Model.raise_on_save_failure = true
   "-Djavalanche.enable.unary.operator=#{@javalanche_operators["UNARY_OPERATOR"]} " \
   "-Djavalanche.enable.monitor.remove=#{@javalanche_operators["MONITOR_REMOVE"]} " \
   "-Djavalanche.enable.replace.thread.call=#{@javalanche_operators["REPLACE_THREAD_CALL"]} "
-@libsvm = "libsvm-3.11"
-@libsvm_tar = "libsvm-3.11.tar.gz"
-@libsvm_download = "http://www.csie.ntu.edu.tw/~cjlin/libsvm/libsvm-3.11.tar.gz"
+@libsvm = "libsvm-3.12"
+@libsvm_tar = "#{@libsvm}.tar.gz"
+@libsvm_download = "http://www.csie.ntu.edu.tw/~cjlin/libsvm/#{@libsvm_tar}"
 @cross_validation_folds = 10
 @emma = "emma-2.0.5312"
 @emma_zip = "#{@emma}.zip"
