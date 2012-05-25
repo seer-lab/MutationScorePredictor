@@ -6,17 +6,9 @@ begin
   require "data_mapper"
   require "awesome_print"
   require "statsample"
-  require "./mutation_scorer.rb"
-  require "./coverage_mutation_scorer.rb"
-  require "./extract_mutants.rb"
-  require "./extract_source_metrics.rb"
-  require "./metric_libsvm_synthesizer.rb"
-  require "./test_suite_method_metrics.rb"
-  require "./class_metric_accumulator.rb"
-  require "./method_data.rb"
-  require "./class_data.rb"
-  require "./mutant_data.rb"
-rescue LoadError
+  Dir.glob(File.dirname(__FILE__) + '/lib/*.rb') {|file| require file}
+rescue LoadError => e
+  puts e
   abort "Gems missing. Try use `bundle install`."
 end
 

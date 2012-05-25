@@ -1,3 +1,4 @@
+# require 'ap'
 class MetricLibsvmSynthesizer
 
   attr_accessor :project, :run, :home
@@ -16,7 +17,7 @@ class MetricLibsvmSynthesizer
     method_sections = []
     bounds.each do |bound|
       sections << data_set.all(:mutation_score_of_covered_mutants.gte => bound[0], :mutation_score_of_covered_mutants.lte => bound[1])
-      ap sections.last.count
+      puts sections.last.count
       min_size = sections.last.count if min_size == 0 || sections.last.count < min_size
     end
 
@@ -52,13 +53,13 @@ class MetricLibsvmSynthesizer
 
     # Use bound values
     class_bounds = []
-    class_bounds << [0.0, 0.50]
-    class_bounds << [0.50, 0.90]
-    class_bounds << [0.90, 1.00]
+    class_bounds << [0.0, 0.75]
+    class_bounds << [0.75, 0.95]
+    class_bounds << [0.95, 1.00]
     method_bounds = []
-    method_bounds << [0.0, 0.50]
-    method_bounds << [0.50, 0.90]
-    method_bounds << [0.90, 1.00]
+    method_bounds << [0.0, 0.75]
+    method_bounds << [0.75, 0.95]
+    method_bounds << [0.95, 1.00]
 
     # Create file contents with appropriate categories
     class_libsvm = make_libsvm(class_data, class_bounds)
@@ -152,7 +153,7 @@ class MetricLibsvmSynthesizer
 
       # Mutation Testing
       field == "killed_mutants" ||
-      field == "covered_mutants" ||
+      # field == "covered_mutants" ||
       field == "generated_mutants" ||
       field == "mutation_score_of_covered_mutants" ||
       field == "mutation_score_of_generated_mutants" ||
@@ -199,31 +200,31 @@ class MetricLibsvmSynthesizer
       # field == "not" ||
 
       # Coverage
-      # field == "lcov" ||
-      # field == "ltot" ||
-      # field == "lscor" ||
+      field == "lcov" ||
+      field == "ltot" ||
+      field == "lscor" ||
       # field == "bcov" ||
       # field == "btot" ||
-      # field == "bscor" ||
-      
+      field == "bscor" ||
+
       # Accumulated Test Unit Metrics
-      # field == "stmloc" ||
+      field == "stmloc" ||
       # field == "atmloc" ||
-      # field == "stnbd" ||
+      field == "stnbd" ||
       # field == "atnbd" ||
-      # field == "stvg" ||
+      field == "stvg" ||
       # field == "atvg" ||
-      # field == "stpar" ||
+      field == "stpar" ||
       # field == "atpar" ||
 
       # Accumulated Code Unit Metrics
-      # field == "smloc" ||
+      field == "smloc" ||
       # field == "amloc" ||
-      # field == "snbd" ||
+      field == "snbd" ||
       # field == "anbd" ||
-      # field == "svg" ||
+      field == "svg" ||
       # field == "avg" ||
-      # field == "spar" ||
+      field == "spar" ||
       # field == "apar" ||
 
       field == "."
