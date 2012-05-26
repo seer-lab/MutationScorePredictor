@@ -54,7 +54,7 @@ DataMapper::Model.raise_on_save_failure = true
                                   "eclipse_metrics_xml_reader.git"
 @javalanche = "javalanche-0.4"
 @javalanche_download = "git://github.com/kevinjalbert/javalanche.git"
-@javalanche_branch = nil
+@javalanche_branch = "coverage_method_csv"
 @javalanche_location = "#{@home}/#{@javalanche}"
 @javalanche_project_file = "#{@project_location}javalanche.xml"
 @javalanche_properties = "-Djavalanche.stop.after.first.fail=false " \

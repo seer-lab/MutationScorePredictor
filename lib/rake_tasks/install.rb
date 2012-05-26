@@ -65,6 +65,18 @@ task :install_javalanche do
       file.close
     end
 
+    # Adjust hibernate.cfg idle test time (try to avoid possible deadlock error)
+    puts "[LOG] Adjusting hibernate.cfg idle test time to 300"
+    file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'r')
+    content = file.read
+    file.close
+    content.sub!("\"hibernate.c3p0.idle_test_period\">3000",
+                 "\"hibernate.c3p0.idle_test_period\">300")
+
+    file = File.open("#{@javalanche}/src/main/resources/hibernate.cfg.xml", 'w')
+    file.write(content)
+    file.close
+
     # Create data directory to place misc data files
     if not File.directory?("data")
       mkdir "data"
