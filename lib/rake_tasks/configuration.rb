@@ -54,11 +54,10 @@ DataMapper::Model.raise_on_save_failure = true
                                   "eclipse_metrics_xml_reader.git"
 @javalanche = "javalanche-0.4"
 @javalanche_download = "git://github.com/kevinjalbert/javalanche.git"
-@javalanche_branch = "coverage_method_csv"
+@javalanche_branch = nil
 @javalanche_location = "#{@home}/#{@javalanche}"
 @javalanche_project_file = "#{@project_location}javalanche.xml"
-@javalanche_properties = "-Djavalanche.stop.after.first.fail=false " \
-  "-Djavalanche.project.source.dir=#{@project_src_directory} "\
+@javalanche_properties = "-Djavalanche.project.source.dir=#{@project_src_directory} "\
   "-Djavalanche.enable.arithmetic.replace=#{@javalanche_operators["ARITHMETIC_REPLACE"]} " \
   "-Djavalanche.enable.negate.jump=#{@javalanche_operators["NEGATE_JUMP"]} " \
   "-Djavalanche.enable.remove.call=#{@javalanche_operators["REMOVE_CALL"]} " \
