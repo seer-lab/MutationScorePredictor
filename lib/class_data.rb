@@ -31,7 +31,7 @@ class ClassData
   property :killed_remove_call, Integer, :default => 0
   property :total_remove_call, Integer, :default => 0
   property :killed_replace_variable, Integer, :default => 0
-  property :total_replace_variable, Integer, :default => 0 
+  property :total_replace_variable, Integer, :default => 0
   property :killed_absolute_value, Integer, :default => 0
   property :total_absolute_value, Integer, :default => 0
   property :killed_unary_operator, Integer, :default => 0
@@ -80,6 +80,7 @@ class ClassData
   property :bcov, Integer, :default => 0
   property :btot, Integer, :default => 0
   property :bscor, Float, :default => 0.0
+  property :not, Integer, :default => 0
 
   # Time
   property :created_at, DateTime

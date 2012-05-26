@@ -63,6 +63,7 @@ task :update_svm => [:sqlite3, :install_emma] do
   end
 end
 
+# TODO Refactor this (remove cloned code)
 def run_emma
 
   completed_tests = Hash.new
@@ -93,12 +94,12 @@ def run_emma
       # Only execute the coverage test if it hasn't already been executed
       if completed_tests.has_key?(testing)
         puts "[LOG] Test coverage already executed, copying old results"
-        cp("#{@home}/data/#{completed_tests[testing]}", "#{@home}/data/coverage#{count}.xml")
+        cp("#{@home}/data/#{completed_tests[testing]}", "#{@home}/data/coverage_m_#{count}.xml")
       else
         emma = "-cp #{@home}/#{@emma}/lib/emma.jar emmarun -r xml"
         opts = "-Dreport.sort=-method -Dverbosity.level=silent " \
               "-Dreport.columns=name,line,block -Dreport.depth=method " \
-              "-Dreport.xml.out.file=coverage#{count}.xml " \
+              "-Dreport.xml.out.file=coverage_m_#{count}.xml " \
               "-ix +#{@project_prefix}.* "
         command = "java -Xmx#{@max_memory}m #{emma} -cp " \
               "#{@home}/#{@junit_jar}:#{@home}/SingleJUnitTestRunner.jar:" \
@@ -116,15 +117,80 @@ def run_emma
         # Handle output, it might have errors, nothing or results
         if output.include?("fail")
           puts "[ERROR] With Emma JUnit testing"
-          file = File.open("#{@home}/data/coverage#{count}.xml", 'w')
+          file = File.open("#{@home}/data/coverage_m_#{count}.xml", 'w')
           file.write("")
           file.close
         else
-          mv("coverage#{count}.xml", "#{@home}/data/")
+          mv("coverage_m_#{count}.xml", "#{@home}/data/")
         end
 
         # Store this test coverage to reduce number of executions
-        completed_tests[testing] = "coverage#{count}.xml"
+        completed_tests[testing] = "coverage_m_#{count}.xml"
+      end
+      count += 1
+    end
+  end
+
+  completed_tests = Hash.new
+  count = 1
+
+  # Use all the class that have a mutation score and source metrics
+  ClassData.all(:project => @project_name, :run => @project_run, :usable => true, :tests_touched.not => "").each do |class_item|
+
+    Dir.chdir(@project_location) do
+
+      testing = ""
+      # Build string of testing concrete tests, while ignoring abstract tests
+      class_item.tests_touched.split(" ").each do |test|
+
+        # Acquire the actual file path of the test
+        file = "#{@project_test_directory}#{test.rpartition(".").first.gsub(".",File::Separator)}.java"
+
+        # Seems that tests with the '$' still works via a system call (it will
+        #   actually ignore everything after the '$' till the '.')
+        # Check to see if the file is an abstract class, we'll ignore these
+        if system("egrep abstract\\\s+class #{file}")
+          puts "[INFO] Ignoring abstract test case #{test}"
+          next
+        end
+        testing += test.rpartition(".").first + "#" + test.rpartition(".").last + " "
+      end
+
+      # Only execute the coverage test if it hasn't already been executed
+      if completed_tests.has_key?(testing)
+        puts "[LOG] Test coverage already executed, copying old results"
+        cp("#{@home}/data/#{completed_tests[testing]}", "#{@home}/data/coverage_c_#{count}.xml")
+      else
+        emma = "-cp #{@home}/#{@emma}/lib/emma.jar emmarun -r xml"
+        opts = "-Dreport.sort=-method -Dverbosity.level=silent " \
+              "-Dreport.columns=name,line,block -Dreport.depth=method " \
+              "-Dreport.xml.out.file=coverage_c_#{count}.xml " \
+              "-ix +#{@project_prefix}.* "
+        command = "java -Xmx#{@max_memory}m #{emma} -cp " \
+              "#{@home}/#{@junit_jar}:#{@home}/SingleJUnitTestRunner.jar:" \
+              "#{@classpath} #{opts}"
+
+        # Store tests in txt file to avoid 'arguments too long' error
+        file = File.open("tests#{count}.txt", 'w')
+        file.write(testing)
+        file.close
+
+        # Store the output of the JUnit tests
+        output = `#{command} SingleJUnitTestRunner $(cat tests#{count}.txt)`
+        rm("tests#{count}.txt")
+
+        # Handle output, it might have errors, nothing or results
+        if output.include?("fail")
+          puts "[ERROR] With Emma JUnit testing"
+          file = File.open("#{@home}/data/coverage_c_#{count}.xml", 'w')
+          file.write("")
+          file.close
+        else
+          mv("coverage_c_#{count}.xml", "#{@home}/data/")
+        end
+
+        # Store this test coverage to reduce number of executions
+        completed_tests[testing] = "coverage_c_#{count}.xml"
       end
       count += 1
     end

@@ -1,4 +1,3 @@
-# require 'ap'
 class MetricLibsvmSynthesizer
 
   attr_accessor :project, :run, :home

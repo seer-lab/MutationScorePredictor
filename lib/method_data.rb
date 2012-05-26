@@ -19,7 +19,7 @@ class MethodData
   property :mutation_score_of_covered_mutants, Float, :default => 0.0
   property :mutation_score_of_generated_mutants, Float, :default => 0.0
   property :tests_touched, Text, :default => "", :length => 1000000
- 
+
   # Mutation Types
   property :killed_no_mutation, Integer, :default => 0
   property :total_no_mutation, Integer, :default => 0
@@ -32,7 +32,7 @@ class MethodData
   property :killed_remove_call, Integer, :default => 0
   property :total_remove_call, Integer, :default => 0
   property :killed_replace_variable, Integer, :default => 0
-  property :total_replace_variable, Integer, :default => 0 
+  property :total_replace_variable, Integer, :default => 0
   property :killed_absolute_value, Integer, :default => 0
   property :total_absolute_value, Integer, :default => 0
   property :killed_unary_operator, Integer, :default => 0
@@ -47,7 +47,6 @@ class MethodData
   property :nbd, Integer, :default => 0
   property :vg, Integer, :default => 0
   property :par, Integer, :default => 0
-  property :not, Integer, :default => 0
 
   property :stmloc, Integer, :default => 0
   property :atmloc, Float, :default => 0.0
@@ -65,6 +64,7 @@ class MethodData
   property :bcov, Integer, :default => 0
   property :btot, Integer, :default => 0
   property :bscor, Float, :default => 0.0
+  property :not, Integer, :default => 0
 
   # Time
   property :created_at, DateTime
