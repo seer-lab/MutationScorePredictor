@@ -29,7 +29,6 @@ class ClassMetricAccumulator
 
         # Acquire sum metrics of matching methods
         class_item.update(
-          :occurs => class_item.occurs + 1,
           :smloc => MethodData.sum(:mloc, :conditions => {:project => @project, :run => @run}),
           :snbd => MethodData.sum(:nbd, :conditions => {:project => @project, :run => @run}),
           :svg => MethodData.sum(:vg, :conditions => {:project => @project, :run => @run}),
