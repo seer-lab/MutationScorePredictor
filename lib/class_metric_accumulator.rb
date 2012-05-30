@@ -29,10 +29,10 @@ class ClassMetricAccumulator
 
         # Acquire sum metrics of matching methods
         class_item.update(
-          :smloc => MethodData.sum(:mloc, :conditions => {:project => @project, :run => @run}),
-          :snbd => MethodData.sum(:nbd, :conditions => {:project => @project, :run => @run}),
-          :svg => MethodData.sum(:vg, :conditions => {:project => @project, :run => @run}),
-          :spar => MethodData.sum(:par, :conditions => {:project => @project, :run => @run}),
+          :smloc => MethodData.sum(:mloc, :conditions => {:project => @project, :run => @run, :class_name => class_item.class_name}),
+          :snbd => MethodData.sum(:nbd, :conditions => {:project => @project, :run => @run, :class_name => class_item.class_name}),
+          :svg => MethodData.sum(:vg, :conditions => {:project => @project, :run => @run, :class_name => class_item.class_name}),
+          :spar => MethodData.sum(:par, :conditions => {:project => @project, :run => @run, :class_name => class_item.class_name}),
         )
 
         # Acquire avg metrics of matching methods
@@ -41,7 +41,6 @@ class ClassMetricAccumulator
           :anbd => divide(class_item.snbd, number_of_methods),
           :avg => divide(class_item.svg, number_of_methods),
           :apar => divide(class_item.spar, number_of_methods),
-
         )
 
       end
