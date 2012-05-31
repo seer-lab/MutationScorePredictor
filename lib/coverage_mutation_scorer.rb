@@ -3,11 +3,10 @@ require 'set'
 
 class CoverageMutationScorer
 
-  attr_accessor :project, :run, :operators, :code_units_mutation_data, :method_occurrence
+  attr_accessor :project, :operators, :code_units_mutation_data, :method_occurrence
 
-  def initialize(project, run, operators)
+  def initialize(project, operators)
     @project = project
-    @run = run
     @operators = operators
     @code_units_mutation_data = Hash.new
     @method_occurrence = Hash.new
@@ -73,7 +72,7 @@ class CoverageMutationScorer
   def process
 
     # Make list of method names that are overloaded
-    mutants = MutantData.all(:project => @project, :run => @run)
+    mutants = MutantData.all(:project => @project)
 
     # Find the number of occurrences for each method (excluding params)
     mutants.all(:fields => [:method_name], :unique => true).each do |mutant|
@@ -97,11 +96,11 @@ class CoverageMutationScorer
     add_code_unit_data
 
     puts "[LOG] Updating :occurs => 1"
-    MethodData.all(:project => @project, :run => @run, :usable => true).update(:occurs => 1)
-    ClassData.all(:project => @project, :run => @run, :usable => true).update(:occurs => 1)
+    MethodData.all(:project => @project, :usable => true).update(:occurs => 1)
+    ClassData.all(:project => @project, :usable => true).update(:occurs => 1)
 
-    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :run => @run, :usable => true).count}"
-    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :run => @run, :usable => true).count}"
+    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :usable => true).count}"
+    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :usable => true).count}"
   end
 
   def collect_class_method_data(mutants)
@@ -232,7 +231,6 @@ class CoverageMutationScorer
         # Acquire class data
         class_item = ClassData.first_or_create(
           :project => @project,
-          :run => @run,
           :class_name => unit.class_name
         )
 
@@ -269,7 +267,6 @@ class CoverageMutationScorer
         # Acquire method data
         method_item = MethodData.first_or_create(
           :project => @project,
-          :run => @run,
           :class_name => unit.class_name,
           :method_name => unit.method_name
         )

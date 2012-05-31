@@ -3,11 +3,10 @@ require 'nokogiri'
 
 class TestSuiteMethodMetrics
 
-  attr_accessor :project, :run
+  attr_accessor :project
 
-  def initialize(project, run)
+  def initialize(project)
     @project = project
-    @run = run
   end
 
   def calculate_avg(value1, value2)
@@ -22,7 +21,7 @@ class TestSuiteMethodMetrics
   def add_test_metrics
 
     # For a method get a list of metrics from each test's methods
-    MethodData.all(:project => @project, :run => @run, :tests_touched.not => "").each do |method|
+    MethodData.all(:project => @project, :tests_touched.not => "").each do |method|
 
       puts "[LOG] Adding Test Metrics - #{method.method_name}"
 
@@ -40,7 +39,7 @@ class TestSuiteMethodMetrics
 
       # Extract the sum metrics of the tests for this method
       method.tests_touched.split(" ").each do |test|
-        test_method = MethodData.first(:project => @project, :run => @run, :method_name => test)
+        test_method = MethodData.first(:project => @project, :method_name => test)
         if test_method != nil
           sum_tmloc += test_method.mloc
           sum_tnbd += test_method.nbd
@@ -69,7 +68,7 @@ class TestSuiteMethodMetrics
     end
 
     # For a class get a list of metrics from each test's methods
-    ClassData.all(:project => @project, :run => @run, :tests_touched.not => "").each do |class_item|
+    ClassData.all(:project => @project, :tests_touched.not => "").each do |class_item|
 
       puts "[LOG] Adding Test Metrics - #{class_item.class_name}"
 
@@ -87,7 +86,7 @@ class TestSuiteMethodMetrics
 
       # Extract the sum metrics of the tests for this class
       class_item.tests_touched.split(" ").each do |test|
-        test_method = MethodData.first(:project => @project, :run => @run, :method_name => test)
+        test_method = MethodData.first(:project => @project, :method_name => test)
         if test_method != nil
           sum_tmloc += test_method.mloc
           sum_tnbd += test_method.nbd
@@ -123,7 +122,7 @@ class TestSuiteMethodMetrics
 
     c = 1
     # For each method, find the coverage of the tests
-    MethodData.all(:project => @project, :run => @run, :usable => true, :tests_touched.not => "").each do |method|
+    MethodData.all(:project => @project, :usable => true, :tests_touched.not => "").each do |method|
 
       # Parse the XML coverage file
       puts "[LOG] Extracting coverage data from ./data/coverage_m_#{c}.xml"
@@ -191,7 +190,7 @@ class TestSuiteMethodMetrics
 
     c = 1
     # For each class, find the coverage of the tests
-    ClassData.all(:project => @project, :run => @run, :usable => true, :tests_touched.not => "").each do |class_item|
+    ClassData.all(:project => @project, :usable => true, :tests_touched.not => "").each do |class_item|
 
       # Parse the XML coverage file
       puts "[LOG] Extracting coverage data from ./data/coverage_c_#{c}.xml"
@@ -264,12 +263,9 @@ class TestSuiteMethodMetrics
     # Acquire the test metrics
     add_test_metrics
 
-    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :run => @run, :usable => true).count}"
+    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :usable => true).count}"
     puts "[LOG] Removing items that are not valid (no covered tests/no mutation score) (occurs!=3)"
-    MethodData.all(:project => @project, :run => @run, :usable => true, :occurs.not => 3).update(:usable => false)
-    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :run => @run, :usable => true).count}"
-
-
+    MethodData.all(:project => @project, :usable => true, :occurs.not => 3).update(:usable => false)
+    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :usable => true).count}"
   end
-
 end

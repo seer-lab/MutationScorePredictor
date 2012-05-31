@@ -7,11 +7,11 @@ task :setup_svm => [:sqlite3, :get_mutation_scores, :extract_metrics,
 
   # Add test metrics to the methods's metrics
   puts "[LOG] Adding testing metrics to method metrics"
-  TestSuiteMethodMetrics.new(@project_name, @project_run).process
+  TestSuiteMethodMetrics.new(@project_name).process
 
   # Accumulating metrics from methods into the classes
   puts "[LOG] Accumulating metrics from methods into classes"
-  ClassMetricAccumulator.new(@project_name, @project_run).process
+  ClassMetricAccumulator.new(@project_name).process
 
   # Recap on the memory and cores used
   puts "Resource Summary:"
@@ -26,32 +26,32 @@ desc "Update up the support vector machine for training (using coverage data)"
 task :update_svm => [:sqlite3, :install_emma] do
 
   # Check if there is data to update from
-  if MutantData.count(:project => @project_name, :run => @project_run) > 0
+  if MutantData.count(:project => @project_name) > 0
 
     # Extract mutation scores from Javalanche
     puts "[LOG] Updating mutation scores from Javalanche results"
-    CoverageMutationScorer.new(@project_name, @project_run, @javalanche_operators).process
+    CoverageMutationScorer.new(@project_name, @javalanche_operators).process
 
     # Re-acquire the coverage metrics
     find_and_set_classpath
     run_emma
 
     # Handle the source metrics
-    if MethodData.count(:project => @project_name, :run => @project_run, :mloc.gt => 0) > 0
+    if MethodData.count(:project => @project_name, :mloc.gt => 0) > 0
       puts "[LOG] Updating the occurs of class/method to 2 (source metrics already exist)"
-      MethodData.all(:project => @project_name, :run => @project_run).update(:occurs => 2)
-      ClassData.all(:project => @project_name, :run => @project_run).update(:occurs => 2)
+      MethodData.all(:project => @project_name).update(:occurs => 2)
+      ClassData.all(:project => @project_name).update(:occurs => 2)
     else
       extract_metrics
     end
 
     # Add test metrics to the methods's metrics
     puts "[LOG] Adding testing metrics to method metrics"
-    TestSuiteMethodMetrics.new(@project_name, @project_run).process
+    TestSuiteMethodMetrics.new(@project_name).process
 
     # Accumulating metrics from methods into the classes
     puts "[LOG] Accumulating metrics from methods into classes"
-    ClassMetricAccumulator.new(@project_name, @project_run).process
+    ClassMetricAccumulator.new(@project_name).process
 
     # Recap on the memory and cores used
     puts "Resource Summary:"
@@ -70,7 +70,7 @@ def run_emma
   count = 1
 
   # Use all the methods that have a mutation score and source metrics
-  MethodData.all(:project => @project_name, :run => @project_run, :usable => true, :tests_touched.not => "").each do |method|
+  MethodData.all(:project => @project_name, :usable => true, :tests_touched.not => "").each do |method|
 
     Dir.chdir(@project_location) do
 
@@ -135,7 +135,7 @@ def run_emma
   count = 1
 
   # Use all the class that have a mutation score and source metrics
-  ClassData.all(:project => @project_name, :run => @project_run, :usable => true, :tests_touched.not => "").each do |class_item|
+  ClassData.all(:project => @project_name, :usable => true, :tests_touched.not => "").each do |class_item|
 
     Dir.chdir(@project_location) do
 
@@ -193,65 +193,6 @@ def run_emma
         completed_tests[testing] = "coverage_c_#{count}.xml"
       end
       count += 1
-    end
-  end
-end
-
-# Calculate statistics on the project
-desc "Calculate statistics on the project (correlation, distribution, etc...)"
-task :statistics => [:sqlite3] do
-
-  # Check if there is data to update from
-  if MethodData.count(:project => @project_name, :run => @project_run) > 0
-    puts "[LOG] Calculating statistics of data set"
-    MetricLibsvmSynthesizer.new(@project_name, @project_run, @home).statistics
-  else
-    puts "[ERROR] No data to cacluate statistics on (run setup_svm)"
-  end
-end
-
-# Perform cross validation of the project
-desc "Perform cross validation on the project"
-task :cross_validation => [:sqlite3] do
-
-  puts "[LOG] Creating .libsvm files"
-  MetricLibsvmSynthesizer.new(@project_name, @project_run, @home).process
-
-  Dir.chdir("#{@libsvm}") do
-    puts "[LOG] Making libsvm"
-    sh "make"
-    Dir.chdir("tools") do
-      puts "[LOG] Modifying grid.py to use #{@max_cores} cores and " \
-           "#{@cross_validation_folds} folds"
-
-      # Modify the settings to use the specified cores and folds
-      file = File.open("grid.py", 'r')
-      content = file.read
-      file.close
-      content.gsub!("nr_local_worker = 1", "nr_local_worker = #{@max_cores}")
-      content.gsub!("fold = 5", "fold = #{@cross_validation_folds}")
-      file = File.open("grid.py", 'w')
-      file.write(content)
-      file.close
-
-      puts "[LOG] Performing cross validation"
-      class_output = `#{@python} easy.py ./../../data/#{@project_name}_class_#{@project_run}.libsvm`
-      class_values = class_output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
-      method_output = `#{@python} easy.py ./../../data/#{@project_name}_method_#{@project_run}.libsvm`
-      method_values = method_output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
-
-      puts "[LOG] Acquiring detailed results of cross validation"
-      `../svm-train -v #{@cross_validation_folds} -c #{class_values[0]} -g #{class_values[1]} ./#{@project_name}_class_#{@project_run}.libsvm.scale`
-      cp("./prediction_file.csv", "../../data/#{@project_name}_class_#{@project_run}_prediction.csv")
-      `../svm-train -v #{@cross_validation_folds} -c #{method_values[0]} -g #{method_values[1]} ./#{@project_name}_method_#{@project_run}.libsvm.scale`
-      cp("./prediction_file.csv", "../../data/#{@project_name}_method_#{@project_run}_prediction.csv")
-
-      puts "[LOG] Class Accuracy = #{class_values[2]}%"
-      puts "[LOG] Best Class Configuration = -c #{class_values[0]} -g #{class_values[1]}"
-
-      puts "[LOG] Method Accuracy = #{method_values[2]}%"
-      puts "[LOG] Best Method Configuration = -c #{method_values[0]} -g #{method_values[1]}"
-
     end
   end
 end

@@ -6,7 +6,7 @@ class MutantData
 
   # Source Unit
   property :project, Text, :required => true
-  property :run, Integer, :required => true
+  property :run, Integer, :default => 0, :required => false  # TODO phase this out
   property :class_name, Text, :required => true
   property :method_name, Text, :required => true
   property :line_number, Integer, :required => true

@@ -2,11 +2,10 @@ require 'csv'
 
 class MutationScorer
 
-  attr_accessor :project, :run, :class_file, :method_file
+  attr_accessor :project, :class_file, :method_file
 
-  def initialize(project, run, class_file, method_file)
+  def initialize(project, class_file, method_file)
     @project = project
-    @run = run
     @class_file = class_file
     @method_file = method_file
   end
@@ -26,7 +25,6 @@ class MutationScorer
       # Acquire class data
       class_item = ClassData.first_or_create(
         :project => @project,
-        :run => @run,
         :class_name => row[0]
       )
 
@@ -74,7 +72,6 @@ class MutationScorer
       # Acquire method data
       method_item = MethodData.first_or_create(
         :project => @project,
-        :run => @run,
         :class_name => row[0],
         :method_name => row[1].rpartition('(').first
       )
@@ -111,13 +108,13 @@ class MutationScorer
       )
     end
 
-    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :run => @run, :usable => true).count}"
-    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :run => @run, :usable => true).count}"
+    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :usable => true).count}"
+    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :usable => true).count}"
     puts "[LOG] Removing items that were duplicated (occurs>1)"
-    MethodData.all(:project => @project, :run => @run, :usable => true, :occurs.gt => 1).update(:usable => false)
-    ClassData.all(:project => @project, :run => @run, :usable => true, :occurs.gt => 1).update(:usable => false)
-    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :run => @run, :usable => true).count}"
-    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :run => @run, :usable => true).count}"
+    MethodData.all(:project => @project, :usable => true, :occurs.gt => 1).update(:usable => false)
+    ClassData.all(:project => @project, :usable => true, :occurs.gt => 1).update(:usable => false)
+    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :usable => true).count}"
+    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :usable => true).count}"
 
   end
 end

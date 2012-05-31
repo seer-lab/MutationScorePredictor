@@ -1,10 +1,9 @@
 class MetricLibsvmSynthesizer
 
-  attr_accessor :project, :run, :home
+  attr_accessor :project, :home
 
-  def initialize(project, run, home)
+  def initialize(project, home)
     @project = project
-    @run = run
     @home = home
   end
 
@@ -47,36 +46,36 @@ class MetricLibsvmSynthesizer
 
   def process
 
-    class_data = ClassData.all(:project => @project, :run => @run, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
-    method_data = MethodData.all(:project => @project, :run => @run, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    class_data = ClassData.all(:project => @project, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    method_data = MethodData.all(:project => @project, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
 
     # Use bound values
     class_bounds = []
-    class_bounds << [0.0, 0.75]
-    class_bounds << [0.75, 0.95]
-    class_bounds << [0.95, 1.00]
+    class_bounds << [0.0, 0.7]
+    class_bounds << [0.7, 0.90]
+    class_bounds << [0.90, 1.00]
     method_bounds = []
-    method_bounds << [0.0, 0.75]
-    method_bounds << [0.75, 0.95]
-    method_bounds << [0.95, 1.00]
+    method_bounds << [0.0, 0.7]
+    method_bounds << [0.7, 0.90]
+    method_bounds << [0.90, 1.00]
 
     # Create file contents with appropriate categories
     class_libsvm = make_libsvm(class_data, class_bounds)
     method_libsvm = make_libsvm(method_data, method_bounds)
 
     # Write out .libsvm files
-    file = File.open("#{@home}/data/#{@project}_class_#{@run}.libsvm", 'w')
+    file = File.open("#{@home}/data/#{@project}_class.libsvm", 'w')
     file.write(class_libsvm)
     file.close
 
-    file = File.open("#{@home}/data/#{@project}_method_#{@run}.libsvm", 'w')
+    file = File.open("#{@home}/data/#{@project}_method.libsvm", 'w')
     file.write(method_libsvm)
     file.close
   end
 
   def statistics
-    class_data = ClassData.all(:project => @project, :run => @run, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
-    method_data = MethodData.all(:project => @project, :run => @run, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    class_data = ClassData.all(:project => @project, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    method_data = MethodData.all(:project => @project, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
 
     # Calculate the distribution of the mutation scores
     puts "[LOG] Calculating distributions"
@@ -103,7 +102,7 @@ class MetricLibsvmSynthesizer
     end
 
     # Write out distribution csv file
-    file = File.open("#{@home}/data/#{@project}_#{type}_#{@run}_distribution.csv", 'w')
+    file = File.open("#{@home}/data/#{@project}_#{type}_distribution.csv", 'w')
     file.write(distribution_range.join(","))
     file.close
   end
@@ -140,7 +139,7 @@ class MetricLibsvmSynthesizer
     end
 
     # Write out correlation matrix file
-    file = File.open("#{@home}/data/#{@project}_#{type}_#{@run}_correlation.txt", 'w')
+    file = File.open("#{@home}/data/#{@project}_#{type}_correlation.txt", 'w')
     file.write(Statsample::Analysis.to_text)
     file.close
   end
@@ -207,23 +206,23 @@ class MetricLibsvmSynthesizer
       field == "bscor" ||
 
       # Accumulated Test Unit Metrics
-      field == "stmloc" ||
+      # field == "stmloc" ||
       # field == "atmloc" ||
-      field == "stnbd" ||
+      # field == "stnbd" ||
       # field == "atnbd" ||
-      field == "stvg" ||
+      # field == "stvg" ||
       # field == "atvg" ||
-      field == "stpar" ||
+      # field == "stpar" ||
       # field == "atpar" ||
 
       # Accumulated Code Unit Metrics
-      field == "smloc" ||
+      # field == "smloc" ||
       # field == "amloc" ||
-      field == "snbd" ||
+      # field == "snbd" ||
       # field == "anbd" ||
-      field == "svg" ||
+      # field == "svg" ||
       # field == "avg" ||
-      field == "spar" ||
+      # field == "spar" ||
       # field == "apar" ||
 
       field == "."

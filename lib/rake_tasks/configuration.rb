@@ -8,7 +8,6 @@ DataMapper::Model.raise_on_save_failure = true
 @eclipse_launcher = "#{@eclipse}plugins/" \
            "org.eclipse.equinox.launcher_1.1.0.v20100507.jar"
 @eclipse_workspace = "/home/jalbert/workspace1/"
-@project_run = 1
 @project_builder = "ant"  # Project uses "ant" or "maven"
 @project_name = "triangleJunit4"
 @project_prefix = "triangle"
@@ -19,7 +18,7 @@ DataMapper::Model.raise_on_save_failure = true
 @max_memory = "4000"  # In megabytes (the max avalible memory)
 @memory_for_tests = "4000"  # In megabytes (the memory needed for the test suite)
 @max_cores = "4"
-@javalanche_log_level = "ERROR"
+@javalanche_log_level = "INFO"
 @javalanche_coverage = true
 @python = "python2"  # Python 2.7 command
 @rake = "rake"  # Rake command

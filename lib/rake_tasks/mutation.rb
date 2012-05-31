@@ -92,13 +92,13 @@ task :get_mutation_scores => [:sqlite3, :install_javalanche,
   # Extract mutation scores from Javalanche
   puts "[LOG] Extracting mutation scores from Javalanche results"
   if @javalanche_coverage
-    ExtractMutants.new(@project_name, @project_run,
+    ExtractMutants.new(@project_name,
       "#{@project_location}analyze.csv",
       "#{@project_location}mutation-files/tests_touched.csv").process
 
-    CoverageMutationScorer.new(@project_name, @project_run, @javalanche_operators).process
+    CoverageMutationScorer.new(@project_name, @javalanche_operators).process
   else
-    MutationScorer.new(@project_name, @project_run,
+    MutationScorer.new(@project_name,
       "#{@project_location}mutation-files/class-scores.csv",
       "#{@project_location}mutation-files/method-scores.csv").process
   end
@@ -117,8 +117,8 @@ task :test_project => [:install_javalanche, :setup_javalanche] do
     sh "#{create_javalanche_command("testTask2")}"
     sh "cat ./mutation-files/failed-tests.xml" if File.exists?("./mutation-files/failed-tests.xml")
 
-    # puts "[LOG] Test Javalanche command (testTask3)"
-    # sh "#{create_javalanche_command("testTask3")}"
-    # sh "cat ./mutation-files/failing-tests-permuted.txt" if File.exists?("./mutation-files/failing-tests-permuted.txt")
+    puts "[LOG] Test Javalanche command (testTask3)"
+    sh "#{create_javalanche_command("testTask3")}"
+    sh "cat ./mutation-files/failing-tests-permuted.txt" if File.exists?("./mutation-files/failing-tests-permuted.txt")
   end
 end

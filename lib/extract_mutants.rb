@@ -2,11 +2,10 @@ require 'csv'
 
 class ExtractMutants
 
-  attr_accessor :project, :run, :analyze_file, :tests_file
+  attr_accessor :project, :analyze_file, :tests_file
 
-  def initialize(project, run, analyze_file, tests_file)
+  def initialize(project, analyze_file, tests_file)
     @project = project
-    @run = run
     @analyze_file = analyze_file
     @tests_file = tests_file
   end
@@ -43,14 +42,13 @@ class ExtractMutants
       # Create mutant
       MutantData.first_or_create(
         :project => @project,
-        :run => @run,
-        :class_name => row[20], 
-        :method_name => row[20] + "." + row[21], 
-        :line_number => row[22], 
+        :class_name => row[20],
+        :method_name => row[20] + "." + row[21],
+        :line_number => row[22],
 
-        :mutant_id => row[0], 
-        :killed => row[1], 
-        :type => row[19], 
+        :mutant_id => row[0],
+        :killed => row[1],
+        :type => row[19],
         :methods_modified_all => row[7],
         :tests_touched => tests_touched[row[0]]
       )

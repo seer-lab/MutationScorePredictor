@@ -93,7 +93,7 @@ task :extract_metrics => [:sqlite3, :get_eclipse_metrics_xml,
        "./data/#{@project_name}.xml -t csv"
 
     puts "[LOG] Extract metric from csv format into sqlite3 DB"
-    ExtractSourceMetrics.new(@project_name, @project_run,
+    ExtractSourceMetrics.new(@project_name,
     "#{@home}/data/#{@project_name}_class.csv",
     "#{@home}/data/#{@project_name}_method.csv").process
 end

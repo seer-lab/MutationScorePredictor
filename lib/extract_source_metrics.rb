@@ -2,11 +2,10 @@ require 'csv'
 
 class ExtractSourceMetrics
 
-  attr_accessor :project, :run, :class_file, :method_file
+  attr_accessor :project, :class_file, :method_file
 
-  def initialize(project, run, class_file, method_file)
+  def initialize(project, class_file, method_file)
     @project = project
-    @run = run
     @class_file = class_file
     @method_file = method_file
   end
@@ -26,7 +25,6 @@ class ExtractSourceMetrics
       # Acquire class data
       class_item = ClassData.first_or_create(
         :project => @project,
-        :run => @run,
         :class_name => row[0]
       )
 
@@ -60,7 +58,6 @@ class ExtractSourceMetrics
         # Acquire method data
         method_item = MethodData.first_or_create(
           :project => @project,
-          :run => @run,
           :class_name => row[0].rpartition('.').first,
           :method_name => row[0]
         )
@@ -78,13 +75,13 @@ class ExtractSourceMetrics
       end
     end
 
-    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :run => @run, :usable => true).count}"
-    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :run => @run, :usable => true).count}"
+    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :usable => true).count}"
+    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :usable => true).count}"
     puts "[LOG] Removing items that were duplicated (occurs>2)"
-    MethodData.all(:project => @project, :run => @run, :usable => true, :occurs.gt => 2).update(:usable => false)
-    ClassData.all(:project => @project, :run => @run, :usable => true, :occurs.gt => 2).update(:usable => false)
-    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :run => @run, :usable => true).count}"
-    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :run => @run, :usable => true).count}"
+    MethodData.all(:project => @project, :usable => true, :occurs.gt => 2).update(:usable => false)
+    ClassData.all(:project => @project, :usable => true, :occurs.gt => 2).update(:usable => false)
+    puts "[LOG] Number of methods=#{MethodData.all(:project => @project, :usable => true).count}"
+    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :usable => true).count}"
 
   end
 end

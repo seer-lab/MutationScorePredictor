@@ -1,10 +1,9 @@
 class ClassMetricAccumulator
 
- attr_accessor :project, :run
+ attr_accessor :project
 
-  def initialize(project, run)
+  def initialize(project)
     @project = project
-    @run = run
   end
 
   def divide(value1, value2)
@@ -18,10 +17,10 @@ class ClassMetricAccumulator
   def accumulate_metrics
 
     # For all classes
-    ClassData.all(:project => @project, :run => @run).each do |class_item|
+    ClassData.all(:project => @project) do |class_item|
 
       # Acquire avg metrics of matching methods
-      number_of_methods = MethodData.count(:project => @project, :run => @run, :class_name => class_item.class_name)
+      number_of_methods = MethodData.count(:project => @project, :class_name => class_item.class_name)
 
       if number_of_methods != 0
 
@@ -29,10 +28,10 @@ class ClassMetricAccumulator
 
         # Acquire sum metrics of matching methods
         class_item.update(
-          :smloc => MethodData.sum(:mloc, :conditions => {:project => @project, :run => @run, :class_name => class_item.class_name}),
-          :snbd => MethodData.sum(:nbd, :conditions => {:project => @project, :run => @run, :class_name => class_item.class_name}),
-          :svg => MethodData.sum(:vg, :conditions => {:project => @project, :run => @run, :class_name => class_item.class_name}),
-          :spar => MethodData.sum(:par, :conditions => {:project => @project, :run => @run, :class_name => class_item.class_name}),
+          :smloc => MethodData.sum(:mloc, :conditions => {:project => @project, :class_name => class_item.class_name}),
+          :snbd => MethodData.sum(:nbd, :conditions => {:project => @project, :class_name => class_item.class_name}),
+          :svg => MethodData.sum(:vg, :conditions => {:project => @project, :class_name => class_item.class_name}),
+          :spar => MethodData.sum(:par, :conditions => {:project => @project, :class_name => class_item.class_name}),
         )
 
         # Acquire avg metrics of matching methods
@@ -52,10 +51,10 @@ class ClassMetricAccumulator
     # Perform the accumulation of method metrics into the class metrics
     accumulate_metrics
 
-    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :run => @run, :usable => true).count}"
+    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :usable => true).count}"
     puts "[LOG] Removing items that are not valid (no valid methods in class) (occurs!=3)"
-    ClassData.all(:project => @project, :run => @run, :usable => true, :occurs.not => 3).update(:usable => false)
-    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :run => @run, :usable => true).count}"
+    ClassData.all(:project => @project, :usable => true, :occurs.not => 3).update(:usable => false)
+    puts "[LOG] Number of classes=#{ClassData.all(:project => @project, :usable => true).count}"
 
   end
 end
