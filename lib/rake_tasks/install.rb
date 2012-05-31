@@ -3,6 +3,11 @@ task :install => [:sqlite3, :install_javalanche,
                   :install_eclipse_metrics_xml_reader, :install_libsvm,
                   :install_emma, :install_junit] do
 
+  # Create data directory to place misc data files
+  if not File.directory?("data")
+    mkdir "data"
+  end
+
   puts "[LOG] Performing an auto_migrate on sqlite3.db"
   DataMapper.auto_migrate!
 
@@ -77,11 +82,6 @@ task :install_javalanche do
     file.write(content)
     file.close
 
-    # Create data directory to place misc data files
-    if not File.directory?("data")
-      mkdir "data"
-    end
-
   else
     puts "[LOG] Directory #{@javalanche} already exists"
   end
@@ -98,10 +98,6 @@ task :install_eclipse_metrics_xml_reader do
     puts "[LOG] Directory eclipse_metrics_xml_reader already exists"
   end
 
-  # Create data directory to place misc data files
-  if not File.directory?("data")
-    mkdir "data"
-  end
 end
 
 # Install libsvm

@@ -33,6 +33,11 @@ end
 
 # Cleans the project and any generated files from the execution
 task :clean => :clean_project do
+
+  # Create data directory to place misc data files
+  if not File.directory?("data")
+    mkdir "data"
+  end
 end
 
 # Cleans the project and all files not included in initial repository
