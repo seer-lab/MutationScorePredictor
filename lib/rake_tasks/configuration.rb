@@ -50,6 +50,7 @@ DataMapper::Model.raise_on_save_failure = true
                             ""
                           ]
 @@evaluation_seed = Random.new(srand)  # Use srand or actual seed value
+@@evaluation_under_sample = true
 
 # Variables related to Javalanche's database usage
 @use_mysql = false

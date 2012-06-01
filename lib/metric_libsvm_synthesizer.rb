@@ -25,7 +25,12 @@ class MetricLibsvmSynthesizer
       puts "[LOG] #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]}]"
       section_count += 1
 
-      section.sample(min_size, random: @@evaluation_seed).each do |item|
+      if @@evaluation_under_sample
+        puts "[LOG] Undersampling section to #{min_size} items"
+        section = section.sample(min_size, random: @@evaluation_seed)
+      end
+
+      section.each do |item|
         content += section_count.to_s + " "
 
         property_count = 0
@@ -55,7 +60,7 @@ class MetricLibsvmSynthesizer
     class_bounds << [0.70, 0.90]
     class_bounds << [0.90, 1.00]
     method_bounds = []
-    method_bounds << [0.0, 0.70]
+    method_bounds << [0.00, 0.70]
     method_bounds << [0.70, 0.90]
     method_bounds << [0.90, 1.00]
 
