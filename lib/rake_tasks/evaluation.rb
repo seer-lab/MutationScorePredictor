@@ -29,8 +29,8 @@ task :cross_validation => [:sqlite3] do
       file = File.open("grid.py", 'r')
       content = file.read
       file.close
-      content.gsub!("nr_local_worker = 1", "nr_local_worker = #{@max_cores}")
-      content.gsub!("fold = 5", "fold = #{@cross_validation_folds}")
+      content.gsub!(/nr_local_worker = \d+/, "nr_local_worker = #{@max_cores}")
+      content.gsub!(/fold = \d+/, "fold = #{@cross_validation_folds}")
       file = File.open("grid.py", 'w')
       file.write(content)
       file.close
