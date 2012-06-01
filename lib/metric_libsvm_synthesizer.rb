@@ -1,9 +1,9 @@
 class MetricLibsvmSynthesizer
 
-  attr_accessor :project, :home
+  attr_accessor :projects, :home
 
-  def initialize(project, home)
-    @project = project
+  def initialize(projects, home)
+    @projects = projects
     @home = home
   end
 
@@ -15,17 +15,17 @@ class MetricLibsvmSynthesizer
     method_sections = []
     bounds.each do |bound|
       sections << data_set.all(:mutation_score_of_covered_mutants.gte => bound[0], :mutation_score_of_covered_mutants.lte => bound[1])
-      puts sections.last.count
       min_size = sections.last.count if min_size == 0 || sections.last.count < min_size
     end
 
     content = ""
-
     section_count = 0
     sections.each do |section|
-      section_count += 1
-      section.sample(min_size).each do |item|
 
+      puts "[LOG] #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]}]"
+      section_count += 1
+
+      section.sample(min_size, random: @@evaluation_seed).each do |item|
         content += section_count.to_s + " "
 
         property_count = 0
@@ -46,36 +46,38 @@ class MetricLibsvmSynthesizer
 
   def process
 
-    class_data = ClassData.all(:project => @project, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
-    method_data = MethodData.all(:project => @project, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    class_data = ClassData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    method_data = MethodData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
 
     # Use bound values
     class_bounds = []
-    class_bounds << [0.0, 0.7]
-    class_bounds << [0.7, 0.90]
+    class_bounds << [0.00, 0.70]
+    class_bounds << [0.70, 0.90]
     class_bounds << [0.90, 1.00]
     method_bounds = []
-    method_bounds << [0.0, 0.7]
-    method_bounds << [0.7, 0.90]
+    method_bounds << [0.0, 0.70]
+    method_bounds << [0.70, 0.90]
     method_bounds << [0.90, 1.00]
 
     # Create file contents with appropriate categories
+    puts "[LOG] Making class .libsvm"
     class_libsvm = make_libsvm(class_data, class_bounds)
+    puts "[LOG] Making method .libsvm"
     method_libsvm = make_libsvm(method_data, method_bounds)
 
     # Write out .libsvm files
-    file = File.open("#{@home}/data/#{@project}_class.libsvm", 'w')
+    file = File.open("#{@home}/data/evaluation_projects_class.libsvm", 'w')
     file.write(class_libsvm)
     file.close
 
-    file = File.open("#{@home}/data/#{@project}_method.libsvm", 'w')
+    file = File.open("#{@home}/data/evaluation_projects_method.libsvm", 'w')
     file.write(method_libsvm)
     file.close
   end
 
   def statistics
-    class_data = ClassData.all(:project => @project, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
-    method_data = MethodData.all(:project => @project, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    class_data = ClassData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    method_data = MethodData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
 
     # Calculate the distribution of the mutation scores
     puts "[LOG] Calculating distributions"
@@ -102,7 +104,7 @@ class MetricLibsvmSynthesizer
     end
 
     # Write out distribution csv file
-    file = File.open("#{@home}/data/#{@project}_#{type}_distribution.csv", 'w')
+    file = File.open("#{@home}/data/evaluation_projects_#{type}_distribution.csv", 'w')
     file.write(distribution_range.join(","))
     file.close
   end
@@ -139,7 +141,7 @@ class MetricLibsvmSynthesizer
     end
 
     # Write out correlation matrix file
-    file = File.open("#{@home}/data/#{@project}_#{type}_correlation.txt", 'w')
+    file = File.open("#{@home}/data/evaluation_projects_#{type}_correlation.txt", 'w')
     file.write(Statsample::Analysis.to_text)
     file.close
   end

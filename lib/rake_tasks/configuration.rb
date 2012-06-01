@@ -24,6 +24,33 @@ DataMapper::Model.raise_on_save_failure = true
 @rake = "rake"  # Rake command
 @classpath = ""  # Acquired through ant/maven extraction
 
+# Variables related to Evaluation (cross-validation, prediction, statistics)
+#   projects_one is the primary set of projects to use, while projects_two is
+#   to be used for prediction accross projects (train on one, predict on two)
+@evaluation_projects_one = [
+                            "barbecue-1.5-beta1",
+                            "commons-lang-3.3.1",
+                            "jgap_3.6.1_full",
+                            "joda-primitives-1.0",
+                            "joda-time-2.0",
+                            "jsoup-1.6.2",
+                            "logback-core",
+                            "openfast-1.1.0",
+                            ""
+                          ]
+@evaluation_projects_two = [
+                            "barbecue-1.5-beta1",
+                            "commons-lang-3.3.1",
+                            "jgap_3.6.1_full",
+                            "joda-primitives-1.0",
+                            "joda-time-2.0",
+                            "jsoup-1.6.2",
+                            "logback-core",
+                            "openfast-1.1.0",
+                            ""
+                          ]
+@@evaluation_seed = Random.new(srand)  # Use srand or actual seed value
+
 # Variables related to Javalanche's database usage
 @use_mysql = false
 @mysql_database = "mutation_test"
