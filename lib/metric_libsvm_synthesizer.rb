@@ -102,15 +102,15 @@ class MetricLibsvmSynthesizer
     distribution_range = []
     low = 0.00
     high = 0.01
-    100.times do
-      distribution_range << (data_set.count(:mutation_score_of_covered_mutants.gte => low, :mutation_score_of_covered_mutants.lte => high))
+    100.times do |i|
+      distribution_range << (i.to_s + " " + data_set.count(:mutation_score_of_covered_mutants.gte => low, :mutation_score_of_covered_mutants.lte => high).to_s)
       low += 0.01
       high += 0.01
     end
 
     # Write out distribution csv file
-    file = File.open("#{@home}/data/evaluation_projects_#{type}_distribution.csv", 'w')
-    file.write(distribution_range.join(","))
+    file = File.open("#{@home}/data/evaluation_projects_#{type}_distribution.txt", 'w')
+    file.write(distribution_range.join("\n"))
     file.close
   end
 
