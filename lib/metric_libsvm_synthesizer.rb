@@ -13,8 +13,17 @@ class MetricLibsvmSynthesizer
     sections = []
     min_size = 0
     method_sections = []
+    bound_counter = 1
     bounds.each do |bound|
-      sections << data_set.all(:mutation_score_of_covered_mutants.gte => bound[0], :mutation_score_of_covered_mutants.lte => bound[1])
+
+      # Inclusive lower range and exclusive upper range - inclusive on both on last range
+      if bound_counter == bounds.size
+        sections << data_set.all(:mutation_score_of_covered_mutants.gte => bound[0], :mutation_score_of_covered_mutants.lte => bound[1])
+      else
+        sections << data_set.all(:mutation_score_of_covered_mutants.gte => bound[0], :mutation_score_of_covered_mutants.lt => bound[1])
+      end
+      bound_counter += 1
+
       min_size = sections.last.count if min_size == 0 || sections.last.count < min_size
     end
 
@@ -22,7 +31,12 @@ class MetricLibsvmSynthesizer
     section_count = 0
     sections.each do |section|
 
-      puts "[LOG] #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]}]"
+      # Print section ranges with inclusive/exclusive bounds
+      if section_count == sections.size - 1
+        puts "[LOG] #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]}]"
+      else
+        puts "[LOG] #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]})"
+      end
       section_count += 1
 
       if @@evaluation_under_sample
@@ -103,7 +117,14 @@ class MetricLibsvmSynthesizer
     low = 0.00
     high = 0.01
     100.times do |i|
-      distribution_range << (i.to_s + " " + data_set.count(:mutation_score_of_covered_mutants.gte => low, :mutation_score_of_covered_mutants.lte => high).to_s)
+
+      # Inclusive lower range and exclusive upper range - inclusive on both on last range
+      if i == 99
+        distribution_range << (i.to_s + " " + data_set.count(:mutation_score_of_covered_mutants.gte => low, :mutation_score_of_covered_mutants.lte => high).to_s)
+      else
+        distribution_range << (i.to_s + " " + data_set.count(:mutation_score_of_covered_mutants.gte => low, :mutation_score_of_covered_mutants.lt => high).to_s)
+      end
+
       low += 0.01
       high += 0.01
     end
