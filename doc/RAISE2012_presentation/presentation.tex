@@ -20,7 +20,6 @@
 \usetikzlibrary{positioning}
 \usepackage{threeparttable}
 
-
 \definecolor{lightgray}{gray}{.95}
 \definecolor{darkgray}{gray}{.80}
 
@@ -41,8 +40,8 @@
 % Presentation information
 \title[RAISE 2012 -- \insertframenumber/\inserttotalframenumber]{Predicting Mutation Score Using Source Code and Test Suite Metrics \vspace{2mm} \hrule}
 \subtitle{RAISE 2012}
-\author[\copyright 2012, Kevin Jalbert and Jeremy S. Bradbury]{\textbf{Kevin Jalbert} and Jeremy S. Bradbury}
-\institute[UOIT]{University of Ontario Institute of Technology}
+\author[\copyright 2012, Kevin Jalbert and Jeremy S. Bradbury]{\textbf{Kevin Jalbert} and Jeremy S. Bradbury \\ \vspace{4mm} \scriptsize{\texttt{\{kevin.jalbert,jeremy.bradbury\}@uoit.ca}}}
+\institute[UOIT]{Software Quality Research Group (\url{sqrg.ca})\\University of Ontario Institute of Technology\\Oshawa, Ontario, Canada}
 \date{\tiny June 5$^{th}$, 2012}
 
 \begin{document}
@@ -54,6 +53,83 @@
 \frame{
   \setcounter{tocdepth}{2}
   \tableofcontents[currentsection,hideothersubsections]
+}
+
+\subsection{Mutation Testing}
+\frame{\frametitle{Mutation Testing}
+  \centering
+  \includegraphics[width=8cm]{figures/mutation_testing_overview.pdf}
+  \vspace{2mm}
+  \begin{itemize}
+    \item Create \alert{mutants} from original program using \alert{mutation operators}
+    \item Compare mutant's \alert{results} against original program using \alert{test suite}
+    \item Mutation score is \alert{percent} of non-equivalent mutants \alert{killed}
+  \end{itemize}
+}
+
+\subsubsection{Mutation Operators}
+\frame{\frametitle{Mutation Operators}
+  \begin{table}[h]
+    \centering
+    \rowcolors{2}{gray!30}{gray!20}
+    \begin{tabular}{|l|l|}
+      \hline
+      \rowcolor[RGB]{169,196,223}
+      \textbf{Name} & \textbf{Description} \\
+      \hline REPLACE\_CONSTANT & Replace a constant \\
+      \hline NEGATE\_JUMP & Negate jump condition \\
+      \hline ARITHMETIC\_REPLACE & Replace arithmetic operator \\
+      \hline REMOVE\_CALL & Remove method call \\
+      \hline REPLACE\_VARIABLE & Replace variable reference\\
+      \hline ABSOLUTE\_VALUE & Insert absolute value of a variable \\
+      \hline UNARY\_OPERATOR & Insert unary operator \\
+      \hline
+    \end{tabular}
+  \end{table}
+}
+
+\subsubsection{Mutation Operators}
+\frame{\frametitle{Mutation Operators}
+  \begin{table}[h]
+    \centering
+    \rowcolors{2}{gray!30}{gray!20}
+    \begin{tabular}{|l|l|}
+      \hline
+      \rowcolor[RGB]{169,196,223}
+      \textbf{Name} & \textbf{Description} \\
+      \hline REPLACE\_CONSTANT & Replace a constant \\
+      \hline NEGATE\_JUMP & Negate jump condition \\
+      \rowcolor[RGB]{169,166,223}
+      \hline ARITHMETIC\_REPLACE & Replace arithmetic operator \\
+      \hline REMOVE\_CALL & Remove method call \\
+      \hline REPLACE\_VARIABLE & Replace variable reference\\
+      \hline ABSOLUTE\_VALUE & Insert absolute value of a variable \\
+      \hline UNARY\_OPERATOR & Insert unary operator \\
+      \hline
+    \end{tabular}
+  \end{table}
+}
+
+\subsubsection{Example Operator -- ARITHMETIC\_REPLACE}
+\frame{\frametitle{Example Operator -- ARITHMETIC\_REPLACE}
+  \begin{figure}
+    \centering
+    \begin{minipage}{5.5cm}
+    \centering
+    \footnotesize{\textbf{Correct Program}}
+    \tiny
+    \lstinputlisting[language=Java, literate={++this.current}{{\textcolor{red}{$++$\textbf{this}.current}}}{10}]{listings/mutation_example.java}
+    \end{minipage}
+    \vspace{4mm}
+    \hrule
+    \vspace{4mm}
+    \begin{minipage}{5.5cm}
+    \centering
+    \footnotesize{\textbf{Mutant Program}}
+    \tiny
+    \lstinputlisting[language=Java, literate={++this.current}{{\textcolor{red}{$--$\textbf{this}.current}}}{10}]{listings/mutation_example.java}
+    \end{minipage}
+  \end{figure}
 }
 
 \subsection{Problem}
@@ -79,9 +155,9 @@
   \hrule
   \vspace{5mm}
   \begin{itemize}
-    \item A \alert{``do fewer and smarter''} technique
+    \item A \alert{``do fewer and smarter''} technique for mutation testing
     \begin{itemize}
-      \item Indicate source code units that have \alert{low coverage}
+      \item Identify source code units that have \alert{low/high coverage}
       \item Ability to \alert{prioritize} mutation testing for specific mutants
     \end{itemize}
   \end{itemize}
@@ -99,7 +175,7 @@
       \begin{itemize}
         \item Mutation score for source code units
       \end{itemize}
-    \item \alert{Train} and \alert{predict} using Support Vector Machine (SVM)
+    \item \alert{Train} and \alert{predict} class and method source code units using a Support Vector Machine (SVM)
   \end{itemize}
 }
 
@@ -109,23 +185,11 @@
   \tableofcontents[currentsection,hideothersubsections]
 }
 
-\subsection{Mutation Testing}
-\frame{\frametitle{Mutation Testing}
-  \centering
-  \includegraphics[width=8cm]{figures/mutation_testing_overview.pdf}
-  \vspace{2mm}
-  \begin{itemize}
-    \item Create \alert{mutants} from original program using \alert{mutation operators}
-    \item Compare mutant's \alert{results} against original program using \alert{test suite}
-    \item Mutation score is \alert{percent} of non-equivalent mutants \alert{killed}
-  \end{itemize}
-}
-
 \subsection{Support Vector Machine}
 \frame{\frametitle{Support Vector Machine}
   \begin{itemize}
     \item A \alert{supervised} machine learning \alert{classification} technique
-    \item Models a \alert{feature space} is constructed using a \alert{set of vectors}
+    \item Models a \alert{feature space} constructed using a \alert{set of vectors}
     \item Each \alert{vectors} has a set of \alert{attributes} and a \alert{category}
     \item Attempts to \alert{linearly separate} vectors
   \end{itemize}
@@ -154,14 +218,8 @@
 \subsection{Metrics}
 \frame{\frametitle{Metrics}
   \begin{itemize}
-    \item \alert{Measurements} that describe \alert{structural} and \alert{behavioral} \alert{properties} of a software system
-    \item We use \alert{four sets} of software metrics
-    \begin{itemize}
-      \item Source Code Metrics
-      \item Accumulated Source Code Metrics
-      \item Coverage Metrics
-      \item Accumulated Test Case Metrics
-    \end{itemize}
+    \item \alert{Measurements} that describe \alert{structural} and \alert{behavioral} \alert{properties} of a software system -- We believe these properties \alert{affect} the \alert{mutation score} of source code units
+    \item The \alert{combination} of \alert{source code} and \alert{test metrics} is fairly unique to our research.
   \end{itemize}
 }
 
@@ -178,9 +236,9 @@
       \begin{itemize}
         \item \alert{Input}: Units of test cases and units of source code
         \begin{enumerate}
-          \item Collect \alert{mutation scores} using \texttt{Javalanche}
-          \item Collect \alert{source code metrics} using \texttt{Eclipse Metrics Plugin}
-          \item Collect \alert{coverage} metrics using \texttt{EMMA}
+          \item Collect \alert{mutation scores} using \texttt{Javalanche}\footnote{\tiny{\url{github.com/david-schuler/javalanche}}}
+          \item Collect \alert{source code metrics} using \texttt{Eclipse Metrics Plugin}\footnote{\tiny{\url{metrics2.sourceforge.net/}}}
+          \item Collect \alert{coverage metrics} using \texttt{EMMA}\footnote{\tiny{\url{emma.sourceforge.net/}}}
         \end{enumerate}
       \end{itemize}
     \end{minipage}
@@ -195,120 +253,89 @@
   \end{figure}
 }
 
-\subsubsection{Mutation Operators}
-\frame{\frametitle{Mutation Operators}
-  \begin{table}[h]
+\subsubsection{Source Code Metrics -- Methods}
+\frame{\frametitle{Source Code Metrics -- Methods}
+  \begin{table}
+    \small
     \centering
     \rowcolors{2}{gray!30}{gray!20}
     \begin{tabular}{|l|l|}
       \hline
       \rowcolor[RGB]{169,196,223}
-      \textbf{Name} & \textbf{Description} \\
-      \hline REPLACE\_CONSTANT & Replace a constant \\
-      \hline NEGATE\_JUMP & Negate jump condition \\
-      \hline ARITHMETIC\_REPLACE & Replace arithmetic operator \\
-      \hline REMOVE\_CALL & Remove method call \\
-      \hline REPLACE\_VARIABLE & Replace variable reference\\
-      \hline ABSOLUTE\_VALUE & Insert absolute value of a variable \\
-      \hline UNARY\_OPERATOR & Insert unary operator \\
-      \hline
-    \end{tabular}
-  \end{table}
-  \begin{itemize}
-    \item Set of selective method-level mutation operators used in \texttt{Javalanche}.
-  \end{itemize}
-}
-
-\subsubsection{Source Code Metrics}
-\frame{\frametitle{Source Code Metrics}
-  \begin{table}
-    \small
-    \centering
-    \rowcolors{2}{gray!30}{gray!20}
-    \begin{tabular}{|l|l|l|}
-      \hline
-      \rowcolor[RGB]{169,196,223}
-      \textbf{Metrics} & \textbf{Description} & \textbf{Scope} \\
-      \hline MLOC & Method lines of code & Method \\
-      \hline NBD & Nested block depth & Method \\
-      \hline VG & McCabe cyclomatic complexity & Method \\
-      \hline PAR & Number of parameters & Method \\
-      \hline NORM & Number of overridden methods & Class \\
-      \hline NOF & Number of attributes & Class \\
-      \hline NSC & Number of children & Class \\
-      \hline DIT & Depth of inheritance tree & Class \\
-      \hline LCOM & Lack of cohesion of methods & Class \\
-      \hline NSM & Number of static methods & Class \\
-      \hline NOM & Number of methods & Class \\
-      \hline SIX & Specialization index & Class \\
-      \hline WMC & Weighted method per class & Class \\
-      \hline NSF & Number of static attributes & Class \\
+      \textbf{Description} & \textbf{Scope} \\
+      \hline Method lines of code & Method \\
+      \hline Nested block depth & Method \\
+      \hline McCabe cyclomatic complexity & Method \\
+      \hline Number of parameters & Method \\
       \hline
     \end{tabular}
   \end{table}
 }
 
-\subsubsection{Accumulated Source Code Metrics}
-\frame{\frametitle{Accumulated Source Code Metrics}
+\subsubsection{Source Code Metrics -- Classes}
+\frame{\frametitle{Source Code Metrics -- Classes}
   \begin{table}
     \small
     \centering
     \rowcolors{2}{gray!30}{gray!20}
-    \begin{tabular}{|l|l|l|}
+    \begin{tabular}{|l|l|}
       \hline
       \rowcolor[RGB]{169,196,223}
-      \textbf{Metrics} & \textbf{Description} & \textbf{Scope} \\
-      \hline SMLOC & Sum MLOC of methods & Class \\
-      \hline SNBD & Sum NBD of methods & Class \\
-      \hline SVG & Sum VG of methods & Class \\
-      \hline SPAR & Sum PAR of methods & Class \\
-      \hline AMLOC & Average MLOC of methods & Class \\
-      \hline ANBD & Average NBD of methods & Class \\
-      \hline AVG & Average VG of methods & Class \\
-      \hline APAR & Average PAR of methods & Class \\
+      \textbf{Description} & \textbf{Scope} \\
+      \hline Number of overridden methods & Class \\
+      \hline Number of attributes & Class \\
+      \hline Number of children & Class \\
+      \hline Depth of inheritance tree & Class \\
+      \hline Lack of cohesion of methods & Class \\
+      \hline Number of static methods & Class \\
+      \hline Number of methods & Class \\
+      \hline Specialization index & Class \\
+      \hline Weighted method per class & Class \\
+      \hline Number of static attributes & Class \\
       \hline
     \end{tabular}
   \end{table}
 }
 
-\subsubsection{Coverage Metrics}
-\frame{\frametitle{Coverage Metrics}
+\subsubsection{Test Code Metrics -- Coverage}
+\frame{\frametitle{Test Code Metrics -- Coverage}
   \begin{table}
     \small
     \centering
     \rowcolors{2}{gray!30}{gray!20}
-    \begin{tabular}{|l|l|l|}
+    \begin{tabular}{|l|l|}
       \hline
       \rowcolor[RGB]{169,196,223}
-      \textbf{Metrics} & \textbf{Description} & \textbf{Scope} \\
-      \hline BCOV & Basic blocks covered in code unit & Class/Method \\
-      \hline BTOT & Total basic blocks for code unit & Class/Method \\
+      \textbf{Description} & \textbf{Scope} \\
+      \hline Basic blocks covered in code unit & Class/Method \\
+      \hline Total basic blocks for code unit & Class/Method \\
       \hline
     \end{tabular}
   \end{table}
 }
 
-\subsubsection{Accumulated Test Case Metrics}
-\frame{\frametitle{Accumulated Test Case Metrics}
-  \begin{table}
-    \small
-    \centering
-    \rowcolors{2}{gray!30}{gray!20}
-    \begin{tabular}{|l|l|l|}
-      \hline
-      \rowcolor[RGB]{169,196,223}
-      \textbf{Metrics} & \textbf{Description} & \textbf{Scope} \\
-      \hline STMLOC & Sum MLOC of test methods & Class/Method \\
-      \hline STNBD & Sum NBD of test methods & Class/Method \\
-      \hline STVG & Sum VG of test methods & Class/Method \\
-      \hline STPAR & Sum PAR of test methods & Class/Method \\
-      \hline ATMLOC & Average MLOC of test methods & Class/Method \\
-      \hline ATNBD & Average NBD of test methods & Class/Method \\
-      \hline ATVG & Average VG of test methods & Class/Method \\
-      \hline ATPAR & Average PAR of test methods & Class/Method \\
-      \hline
-    \end{tabular}
-  \end{table}
+\subsubsection{Data Collection [recap.]}
+\frame{\frametitle{Data Collection [recap.]}
+  \begin{figure}
+    \begin{minipage}{5.25cm}
+      \begin{itemize}
+        \item \alert{Input}: Units of test cases and units of source code
+        \begin{enumerate}
+          \item Collect \alert{mutation scores} using \texttt{Javalanche}\footnote{\tiny{\url{github.com/david-schuler/javalanche}}}
+          \item Collect \alert{source code metrics} using \texttt{Eclipse Metrics Plugin}\footnote{\tiny{\url{metrics2.sourceforge.net/}}}
+          \item Collect \alert{coverage metrics} using \texttt{EMMA}\footnote{\tiny{\url{emma.sourceforge.net/}}}
+        \end{enumerate}
+      \end{itemize}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{5.25cm}
+      \flushright
+      \includegraphics[width=5.25cm]{figures/process_part1.pdf}
+      \vspace{-5mm}
+      \Huge \centering
+      \ldots
+    \end{minipage}
+  \end{figure}
 }
 
 \subsection{Data Synthesis}
@@ -336,19 +363,93 @@
   \end{figure}
 }
 
-\subsection{.libsvm File}
-\frame{\frametitle{.libsvm File}
-  \begin{minipage}{\linewidth}
-    \scriptsize
-    \lstinputlisting{listings/libsvm_example.libsvm}
-  \end{minipage}
+\subsubsection{Test Code Metrics -- Accumulated Tests}
+\frame{\frametitle{Test Code Metrics -- Accumulated Tests}
   \begin{itemize}
-    \item \texttt{LIBSVM} requires a \alert{specific} file format
-    \begin{itemize}
-      \item \texttt{category attribute\_1:value attribute\_2:value \ldots}
-    \end{itemize}
-    \item We have \alert{class} and \alert{method} \texttt{.libsvm} file
+    \item Each source code unit has a set of \alert{associated test cases} that \alert{touch the unit} during test execution.
+    \item We can acquire the \alert{summation} and \alert{average} of the \alert{associated test cases} for each source code unit.
   \end{itemize}
+  \begin{table}
+    \small
+    \centering
+    \rowcolors{2}{gray!30}{gray!20}
+    \begin{tabular}{|l|l|}
+      \hline
+      \rowcolor[RGB]{169,196,223}
+      \textbf{Description} & \textbf{Scope} \\
+      \hline Method lines of code & Method \\
+      \hline Nested block depth & Method \\
+      \hline McCabe cyclomatic complexity & Method \\
+      \hline Number of parameters & Method \\
+      \hline
+    \end{tabular}
+  \end{table}
+}
+
+\subsubsection{Source Code Metrics -- Accumulated Methods}
+\frame{\frametitle{Source Code Metrics -- Accumulated Methods}
+  \begin{itemize}
+    \item \alert{Class} source code units can also have \alert{summation} and \alert{average} value of \alert{method} scope source code metrics
+  \end{itemize}
+  \begin{table}
+    \small
+    \centering
+    \rowcolors{2}{gray!30}{gray!20}
+    \begin{tabular}{|l|l|}
+      \hline
+      \rowcolor[RGB]{169,196,223}
+      \textbf{Description} & \textbf{Scope} \\
+      \hline Method lines of code & Method \\
+      \hline Nested block depth & Method \\
+      \hline McCabe cyclomatic complexity & Method \\
+      \hline Number of parameters & Method \\
+      \hline
+    \end{tabular}
+  \end{table}
+}
+
+\subsubsection{Data Synthesis [recap.]}
+\frame{\frametitle{Data Synthesis [recap.]}
+  \begin{figure}
+    \begin{minipage}{5.25cm}
+      \begin{itemize}
+        \item \alert{Goal}: Category/feature data for source code units
+        \begin{enumerate}
+          \item \alert{Combine} source code and coverage metrics together
+          \item \alert{Merge} source code metrics of the \alert{touched tests} for each source code unit
+          \item \alert{Aggregate method-level} source code unit metrics into \alert{class-level} source code units
+          \item \alert{Create \texttt{.libsvm}} file using feature/category data
+        \end{enumerate}
+      \end{itemize}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{5.25cm}
+      \Huge \centering
+      \ldots
+      \vspace{-2mm}
+      \flushright
+      \includegraphics[width=5.25cm]{figures/process_part2.pdf}
+    \end{minipage}
+  \end{figure}
+}
+
+\subsubsection{.libsvm File}
+\frame{\frametitle{.libsvm File}
+  \begin{center}
+    \begin{minipage}{6cm}
+      \scriptsize
+      \lstinputlisting{listings/libsvm_example.libsvm}
+    \end{minipage}
+  \end{center}
+  \begin{minipage}{\linewidth}
+    \begin{itemize}
+      \item \texttt{LIBSVM}\footnote{\tiny{\url{csie.ntu.edu.tw/~cjlin/libsvm/}}} is a SVM library that requires a \alert{specific} file format for training and prediction
+      \begin{itemize}
+        \item \texttt{category attribute\_1:value attribute\_2:value \ldots}
+      \end{itemize}
+      \item We have \alert{class} and \alert{method} \texttt{.libsvm} file for predicting and training
+    \end{itemize}
+  \end{minipage}
 }
 
 \section{Results}
@@ -359,30 +460,14 @@
 
 \subsection{Case Study -- JGAP}
 \frame{\frametitle{Case Study -- JGAP}
-
-  \begin{table}
-  \begin{threeparttable}
-    \centering
-    \rowcolors{2}{gray!30}{gray!20}
-    \begin{tabular}{|l|r|r|}
-      \hline
-      \rowcolor[RGB]{169,196,223}
-      \textbf{JGAP Source Artifacts} & \textbf{\# in Source} & \textbf{\# in Test} \\
-      \hline Classes & 415 & 180 \\
-      \hline Methods & 3017 & 1626 \\
-      \hline LOC & 28975 & 19556 \\
-      \hline JUnit Test Cases & -- & 1412\tnote{1} \\
-      \hline
-    \end{tabular}
-    \begin{tablenotes}
-      \scriptsize
-      \item[1] JGAP has 1412 JUnit test cases in total, however 25 of the tests caused errors in the Javalanche tool and were removed.
-    \end{tablenotes}
-  \end{threeparttable}
-  \end{table}
-  \begin{itemize}
-    \item We gathered \alert{\textbf{695} method-level data points} and \alert{\textbf{127} class-level data points} from JGAP.
-  \end{itemize}
+  \begin{minipage}{\linewidth}
+    \begin{itemize}
+      \item We present \alert{initial results} on an open source project -- JGAP (Java Genetic Algorithm Package).
+      \item JGAP \alert{source code} has 28975 SLOC, 3017 methods, 415 classes.
+      \item JGAP \alert{test code} has 19556 SLOC, 1626 methods, 180 classes.
+      \item In total JGAP has 1412\footnote{\tiny{JGAP has 1412 JUnit test cases in total, however 25 of the tests caused errors in the \texttt{Javalanche} tool and were removed.}} \alert{JUnit test cases}.
+    \end{itemize}
+  \end{minipage}
 }
 
 \subsubsection{JGAP -- Class Mutation Score Distribution}
@@ -398,14 +483,17 @@
         ymajorgrids=true,
         xlabel=Mutation Score (\%),
         ylabel=\# of Classes,
-        width=11.0cm,
-        height=7.0cm]
+        width=\linewidth,
+        height=6.0cm]
         \addplot[ybar,fill=black] file {plots/class_distribution.txt};
     \end{axis}
     \end{tikzpicture}
   \end{figure}
-}
 
+  \begin{itemize}
+    \item Collected \alert{127 class-level} data points.
+  \end{itemize}
+}
 
 \subsubsection{JGAP -- Method Mutation Score Distribution}
 \frame{\frametitle{JGAP -- Method Mutation Score Distribution}
@@ -420,12 +508,16 @@
         ymajorgrids=true,
         xlabel=Mutation Score (\%),
         ylabel=\# of Methods,
-        width=11.0cm,
-        height=7.0cm]
+        width=\linewidth,
+        height=6.0cm]
         \addplot[ybar,fill=black] file {plots/method_distribution.txt};
     \end{axis}
-      \end{tikzpicture}
+    \end{tikzpicture}
   \end{figure}
+
+  \begin{itemize}
+    \item Collected \alert{695 method-level} data points.
+  \end{itemize}
 }
 
 \subsubsection{JGAP -- Prediction Categories}
@@ -443,26 +535,33 @@
       \hline
     \end{tabular}
   \end{table}
+
+  \begin{itemize}
+    \item These mutation score ranges were selected to \alert{evenly distribute} the training data points across categories.
+  \end{itemize}
 }
 
 \subsubsection{JGAP -- Cross Validation Accuracy}
 \frame{\frametitle{JGAP -- Cross Validation Accuracy}
-  \begin{table}[!t]
+  \begin{table}
     \centering
     \rowcolors{2}{gray!30}{gray!20}
-    \begin{tabular}{|c|r|r|}
+    \begin{tabular}{|l|r|r|}
       \hline
       \rowcolor[RGB]{169,196,223}
       \textbf{Set} & \textbf{Class Accuracy} & \textbf{Method Accuracy} \\
-      \hline \ding{172} & 53.54\% & 48.77\% \\
-      \hline \ding{173} & 49.61\% & 47.63\% \\
-      \hline \ding{174} & 45.67\% & 49.78\% \\
-      \hline \ding{175} & 54.33\% & 33.96\% \\
-      \hline\ \textbf{\ding{172} \ding{173} \ding{174} \ding{175}} & \textbf{58.27\%} & \textbf{54.82\%} \\
+      \hline Source Metrics & 53.54\% & 48.77\% \\
+      \hline Coverage Metrics & 49.61\% & 47.63\% \\
+      \hline Sum/Avg Test Metrics & 45.67\% & 49.78\% \\
+      \hline Sum/Avg Source Metrics & 54.33\% & 33.96\% \\
+      \hline \textbf{All Metrics} & \textbf{58.27\%} & \textbf{54.82\%} \\
       \hline
     \end{tabular}
   \end{table}
-  \footnotesize{\ding{172}: Source Code Metrics, \ding{173}: Coverage Metrics, \ding{174}: Accumulated Source Code Metrics, \ding{175}: Accumulated Test Case Metrics.}
+
+  \begin{itemize}
+    \item This validates our initial intuition that \alert{we need both source code and test suite metrics} to predict mutation score
+  \end{itemize}
 }
 
 \section{Future Work}
@@ -474,50 +573,65 @@
 \subsection{More Attributes for Feature Data}
 \frame{\frametitle{More Attributes for Feature Data}
   \begin{itemize}
-    \item We are now considering new attributes for feature data:
+    \item We are now considering \alert{new attributes} for feature data:
     \begin{itemize}
-      \item Number of Tests Cases (\texttt{NOT}) for each source code unit.
-      \item Number of Covered Mutants for each source code unit.
+      \item \alert{Number of Tests Cases} for each source code unit.
+      \item \alert{Number of Mutant Types} for each source code unit.
+      \item \alert{Number of Total Mutants} for each source code unit.
     \end{itemize}
+    \item We also want to \alert{optimize} the current set of attributes
   \end{itemize}
 }
 
-\subsection{More Data}
-\frame{\frametitle{More Data}
-  \begin{table}[!t]
+\subsection{More Data, More Questions}
+\frame{\frametitle{More Data, More Questions}
+  \begin{table}
     \centering
     \rowcolors{2}{gray!30}{gray!20}
     \begin{tabular}{|l|r|r|r|}
       \hline
       \rowcolor[RGB]{169,196,223}
       \textbf{Program} & \textbf{SLOC} & \textbf{Test SLOC} & \textbf{Test Cases} \\
-      \hline logback-core (1.0.3) & 12118 & 8145 & 286 \\
-      \hline barbecue (1.5-beta1) & 4837 & 2910 & 225 \\
       \hline jgap (3.6.1) & 28975 & 19694 & 1355 \\
-      \hline commons-lang (3.1) & 19499 & 33332 & 2050 \\
       \hline joda-time (2.0) & 27139 & 51428 & 3866 \\
+      \hline commons-lang (3.1) & 19499 & 33332 & 2050 \\
+      \hline logback-core (1.0.3) & 12118 & 8145 & 286 \\
       \hline openfast (1.1.0) & 11646 & 5587 & 322 \\
-      \hline jsoup (1.6.2) & 10949 & 2883 & 319 \\
       \hline joda-primitives (1.0) & 11157 & 6989 & 1810 \\
-      \hline \textbf{TOTAL} & \textbf{126320} & \textbf{130968} & \textbf{10233} \\
+      \hline jsoup (1.6.2) & 10949 & 2883 & 319 \\
+      \hline barbecue (1.5-beta1) & 4837 & 2910 & 225 \\
       \hline
     \end{tabular}
   \end{table}
+
+  \begin{itemize}
+    \item In general can we \alert{predict within projects?}
+  \end{itemize}
 }
 
-\subsection{Generalization}
-\frame{\frametitle{Generalization}
+\subsubsection{More Data, More Questions}
+\frame{\frametitle{More Data, More Questions}
+  \begin{table}
+    \centering
+    \rowcolors{2}{gray!30}{gray!20}
+    \begin{tabular}{|l|r|r|r|}
+      \hline
+      \rowcolor[RGB]{169,196,223}
+      \textbf{Program} & \textbf{SLOC} & \textbf{Test SLOC} & \textbf{Test Cases} \\
+      \hline jgap (3.6.1) & 28975 & 19694 & 1355 \\
+      \hline joda-time (2.0) & 27139 & 51428 & 3866 \\
+      \hline commons-lang (3.1) & 19499 & 33332 & 2050 \\
+      \hline logback-core (1.0.3) & 12118 & 8145 & 286 \\
+      \hline openfast (1.1.0) & 11646 & 5587 & 322 \\
+      \hline joda-primitives (1.0) & 11157 & 6989 & 1810 \\
+      \hline jsoup (1.6.2) & 10949 & 2883 & 319 \\
+      \hline barbecue (1.5-beta1) & 4837 & 2910 & 225 \\
+      \hline
+    \end{tabular}
+  \end{table}
+
   \begin{itemize}
-    \item Using all datasets:
-    \begin{itemize}
-      \item Cross-validation accuracy on all datasets (\textbf{\%})
-      \item Prediction accuracy on individual datasets(\textbf{\%})
-    \end{itemize}
-    \item Using half of the datasets:
-    \begin{itemize}
-      \item Prediction accuracy on entire external dataset(\textbf{\%})
-      \item Prediction accuracy on external individual datasets(\textbf{\%})
-    \end{itemize}
+    \item Can we \alert{predict across projects?}
   \end{itemize}
 }
 
