@@ -98,41 +98,137 @@ class MetricLibsvmSynthesizer
     class_data = ClassData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
     method_data = MethodData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
 
-    # Calculate the distribution of the mutation scores
-    puts "[LOG] Calculating distributions"
-    distribution("class", class_data)
-    distribution("method", method_data)
+    # Calculate the distribution
+    puts "[LOG] Calculating mutation score distributions and statistic summary"
+    data = distribution_percentage("class", class_data, "mutation_score_of_covered_mutants")
+    summary_statistics("class", data, "mutation_score_of_covered_mutants")
+    data = distribution_percentage("method", method_data, "mutation_score_of_covered_mutants")
+    summary_statistics("method", data, "mutation_score_of_covered_mutants")
 
-    puts "[LOG] Calculating correlation matrix"
+    puts "[LOG] Calculating covered mutant distributions and statistic summary"
+    data = distribution_whole_number("class", class_data, "covered_mutants")
+    summary_statistics("class", data, "covered_mutants")
+    data = distribution_whole_number("method", method_data, "covered_mutants")
+    summary_statistics("method", data, "covered_mutants")
+
     # Calculate the correlation matrix
+    puts "[LOG] Calculating correlation matrix"
     correlation("class", class_data)
     correlation("method", method_data)
 
     puts "[LOG] Data can be found in the #{@home}/data/ directory"
   end
 
-  def distribution(type, data_set)
-
-    distribution_range = []
+  def distribution_percentage(type, data_set, attribute)
+    raw_data = []
     low = 0.00
     high = 0.01
+
+    # Collect raw data
     100.times do |i|
 
       # Inclusive lower range and exclusive upper range - inclusive on both on last range
       if i == 99
-        distribution_range << (i.to_s + " " + data_set.count(:mutation_score_of_covered_mutants.gte => low, :mutation_score_of_covered_mutants.lte => high).to_s)
+        raw_data << data_set.count(attribute.to_sym.gte => low, attribute.to_sym.lte => high)
       else
-        distribution_range << (i.to_s + " " + data_set.count(:mutation_score_of_covered_mutants.gte => low, :mutation_score_of_covered_mutants.lt => high).to_s)
+        raw_data << data_set.count(attribute.to_sym.gte => low, attribute.to_sym.lt => high)
       end
 
       low += 0.01
       high += 0.01
     end
 
+    # Arrange data for distribution output
+    distribution_range = []
+    100.times do |i|
+      distribution_range << (i.to_s + " " + raw_data[i].to_s)
+    end
+
     # Write out distribution csv file
-    file = File.open("#{@home}/data/evaluation_projects_#{type}_distribution.txt", 'w')
+    file = File.open("#{@home}/data/#{type}_#{attribute}_distribution.txt", 'w')
     file.write(distribution_range.join("\n"))
     file.close
+
+    return raw_data
+  end
+
+  def distribution_whole_number(type, data_set, attribute)
+    raw_data = []
+    min = data_set.min(attribute.to_sym, :conditions => [ 'usable = ?', true])
+    max = data_set.max(attribute.to_sym, :conditions => [ 'usable = ?', true]) + 1
+    low = min
+    high = low + 1
+
+    # Collect raw data
+    (max-min).times do |i|
+
+      value = min + i
+      # Inclusive lower range and exclusive upper range - inclusive on both on last range
+      if i == high
+        raw_data << data_set.count(attribute.to_sym.gte => low, attribute.to_sym.lte => high)
+      else
+        raw_data << data_set.count(attribute.to_sym.gte => low, attribute.to_sym.lt => high)
+      end
+
+      low += 1
+      high += 1
+    end
+
+    # Arrange data for distribution output
+    distribution_range = []
+    (max-min).times do |i|
+      distribution_range << ((i+1).to_s + " " + raw_data[i].to_s)
+    end
+
+    # Write out distribution csv file
+    file = File.open("#{@home}/data/#{type}_#{attribute}_distribution.txt", 'w')
+    file.write(distribution_range.join("\n"))
+    file.close
+
+    return raw_data
+  end
+
+  def summary_statistics(type, data_set, attribute)
+    content = []
+    percentiles = [25,50,75]  # Must be in ascending order
+    percentile_indexes = calculate_percentiles(percentiles, data_set)
+
+    (percentiles.size).times do |i|
+      content << "#{percentiles[i]}-percentile-index: #{percentile_indexes[i]}"
+    end
+
+    scale_data = data_set.to_scale
+    content << "count: #{scale_data.size}"
+    content << "min: #{scale_data.min}"
+    content << "max: #{scale_data.max}"
+    content << "sum: #{scale_data.sum}"
+
+    # Write out summary statistics file
+    file = File.open("#{@home}/data/#{type}_#{attribute}_statistics_summary.txt", 'w')
+    file.write(content.join("\n"))
+    file.close
+  end
+
+  def calculate_percentiles(percentiles, raw_data)
+    sum = raw_data.inject(:+)
+    count = raw_data.count
+    total = 0
+    percentile_indexes = []
+    current_percentile = 0
+
+    count.times do |i|
+      total += raw_data[i]
+
+      while total >= percentiles[current_percentile]*0.01*sum
+        percentile_indexes << i
+        current_percentile += 1
+        break if percentiles[current_percentile] == nil
+      end
+
+      break if percentiles[current_percentile] == nil
+    end
+
+    return percentile_indexes
   end
 
   def correlation(type, data_set)
