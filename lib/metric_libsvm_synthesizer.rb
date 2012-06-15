@@ -284,19 +284,19 @@ class MetricLibsvmSynthesizer
       field == "killed_no_mutation" ||
       field == "total_no_mutation" ||
       field == "killed_replace_constant" ||
-      field == "total_replace_constant" ||
+      # field == "total_replace_constant" ||
       field == "killed_negate_jump" ||
-      field == "total_negate_jump" ||
+      # field == "total_negate_jump" ||
       field == "killed_arithmetic_replace" ||
-      field == "total_arithmetic_replace" ||
+      # field == "total_arithmetic_replace" ||
       field == "killed_remove_call" ||
-      field == "total_remove_call" ||
+      # field == "total_remove_call" ||
       field == "killed_replace_variable" ||
-      field == "total_replace_variable" ||
+      # field == "total_replace_variable" ||
       field == "killed_absolute_value" ||
-      field == "total_absolute_value" ||
+      # field == "total_absolute_value" ||
       field == "killed_unary_operator" ||
-      field == "total_unary_operator" ||
+      # field == "total_unary_operator" ||
       field == "killed_replace_thread_call" ||
       field == "total_replace_thread_call" ||
       field == "killed_monitor_remove" ||
