@@ -56,7 +56,7 @@ task :train_predict => [:sqlite3] do
   mv("#{@home}/data/evaluation_projects_method.libsvm", "#{@home}/data/evaluation_projects_one_method.libsvm")
 
   puts "[LOG] Creating .libsvm files for projects_two"
-  MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home).process
+  MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process
   mv("#{@home}/data/evaluation_projects_class.libsvm", "#{@home}/data/evaluation_projects_two_class.libsvm")
   mv("#{@home}/data/evaluation_projects_method.libsvm", "#{@home}/data/evaluation_projects_two_method.libsvm")
 
@@ -96,6 +96,9 @@ def make_predictions(type)
       file.close
 
       puts "#{type.capitalize} Prediction " + output.scan(/(Accuracy = .*$)/)[0][0]
+      values = output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
+      puts "Best Configuration = -c #{values[0]} -g #{values[1]}"
+      puts "Cross Validation Accuracy of Training Set = #{values[2]}\%"
       puts result_summary("../../data/evaluation_projects_two_#{type}_prediction.csv")
     end
   end

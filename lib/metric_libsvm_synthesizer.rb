@@ -2,12 +2,26 @@ class MetricLibsvmSynthesizer
 
   attr_accessor :projects, :home
 
-  def initialize(projects, home)
+  def initialize(projects, home, predict=false)
     @projects = projects
     @home = home
+    @predict = predict
   end
 
   def make_libsvm(data_set, bounds)
+
+    # Identify the attribute order
+    puts "[LOG] Attribute Look-up List:"
+    property_count = 0
+    data_set.properties.each do |property|
+
+      field = property.instance_variable_name[1..-1]
+
+      if not ignore_field(field)
+        property_count += 1
+        puts "Attribute_#{property_count}:#{field} "
+      end
+    end
 
     # Split up data into sections
     sections = []
@@ -39,7 +53,7 @@ class MetricLibsvmSynthesizer
       end
       section_count += 1
 
-      if @@evaluation_under_sample
+      if @@evaluation_under_sample && !@predict
         puts "[LOG] Undersampling section to #{min_size} items"
         section = section.sample(min_size, random: @@evaluation_seed)
       end
