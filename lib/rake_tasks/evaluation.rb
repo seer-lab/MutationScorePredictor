@@ -4,44 +4,48 @@ task :statistics => [:sqlite3] do
 
   # Check if there is data to update from
   if MethodData.count(:project => @evaluation_projects_one) > 0
-    puts "[LOG] Calculating statistics of data set"
-    MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).statistics
+    puts "[LOG] Calculating statistics of data set (classes)"
+    MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home, "class").statistics
   else
     puts "[ERROR] No data to cacluate statistics on (run setup_svm)"
   end
+
+  if MethodData.count(:project => @evaluation_projects_one) > 0
+    puts "[LOG] Calculating statistics of data set (methods)"
+    MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home, "method").statistics
+  else
+    puts "[ERROR] No data to cacluate statistics on (run setup_svm)"
+  end
+
+  puts "[LOG] Data can be found in the #{@home}/data/ directory"
 end
 
 # Perform cross validation of the project
 desc "Perform cross validation on the project"
 task :cross_validation => [:sqlite3] do
+  make_libsvm_library
+  perform_cross_validation("class")
+  perform_cross_validation("method")
+end
 
-  puts "[LOG] Creating .libsvm files"
-  MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process
+def perform_cross_validation(type)
+  puts "[LOG] Creating #{type} .libsvm file"
+  MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home, @type).process
 
-  make_libsvm
   Dir.chdir("#{@libsvm}") do
     Dir.chdir("tools") do
 
       puts "[LOG] Performing cross validation"
-      class_output = `#{@python} easy.py ./../../data/evaluation_projects_class.libsvm`
-      class_values = class_output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
-      method_output = `#{@python} easy.py ./../../data/evaluation_projects_method.libsvm`
-      method_values = method_output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
+      output = `#{@python} easy.py ./../../data/evaluation_projects_#{type}.libsvm`
+      values = output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
 
       puts "[LOG] Acquiring detailed results of cross validation"
-      `../svm-train -v #{@cross_validation_folds} -c #{class_values[0]} -g #{class_values[1]} ./evaluation_projects_class.libsvm.scale`
-      cp("./prediction_file.csv", "../../data/evaluation_projects_class_prediction.csv")
-      `../svm-train -v #{@cross_validation_folds} -c #{method_values[0]} -g #{method_values[1]} ./evaluation_projects_method.libsvm.scale`
-      cp("./prediction_file.csv", "../../data/evaluation_projects_method_prediction.csv")
+      `../svm-train -v #{@cross_validation_folds} -c #{values[0]} -g #{values[1]} ./evaluation_projects_#{type}.libsvm.scale`
+      cp("./prediction_file.csv", "../../data/evaluation_projects_#{type}_prediction.csv")
 
-      puts "[LOG] Best Class Configuration = -c #{class_values[0]} -g #{class_values[1]}"
-      puts "[LOG] Class Accuracy = #{class_values[2]}%"
-      puts result_summary("../../data/evaluation_projects_class_prediction.csv")
-      puts "-----"
-      puts "[LOG] Method Accuracy = #{method_values[2]}%"
-      puts "[LOG] Best Method Configuration = -c #{method_values[0]} -g #{method_values[1]}"
-      puts result_summary("../../data/evaluation_projects_method_prediction.csv")
-
+      puts "[LOG] Best Class Configuration = -c #{values[0]} -g #{values[1]}"
+      puts "[LOG] Class Accuracy = #{values[2]}%"
+      puts result_summary("../../data/evaluation_projects_#{type}_prediction.csv")
     end
   end
 end
@@ -49,21 +53,21 @@ end
 # Train using projects_one and predict projects_two
 desc "Train using projects_one then predict using projects_two"
 task :train_predict => [:sqlite3] do
+  make_libsvm_library
+  perform_train_predict("class")
+  perform_train_predict("method")
+end
 
-  puts "[LOG] Creating .libsvm files for projects_one"
-  MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process
-  mv("#{@home}/data/evaluation_projects_class.libsvm", "#{@home}/data/evaluation_projects_one_class.libsvm")
-  mv("#{@home}/data/evaluation_projects_method.libsvm", "#{@home}/data/evaluation_projects_one_method.libsvm")
+def perform_train_predict(type)
+  puts "[LOG] Creating #{type} .libsvm file for projects_one"
+  MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home, type).process
+  mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
 
-  puts "[LOG] Creating .libsvm files for projects_two"
-  MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process
-  mv("#{@home}/data/evaluation_projects_class.libsvm", "#{@home}/data/evaluation_projects_two_class.libsvm")
-  mv("#{@home}/data/evaluation_projects_method.libsvm", "#{@home}/data/evaluation_projects_two_method.libsvm")
+  puts "[LOG] Creating #{type} .libsvm file for projects_two"
+  MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, type, true).process
+  mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_two_#{type}.libsvm")
 
-  make_libsvm
-  make_predictions("class")
-  puts "-----"
-  make_predictions("method")
+  make_predictions(type)
 end
 
 def make_predictions(type)
@@ -72,9 +76,7 @@ def make_predictions(type)
 
       puts "[LOG] Finding best parameters for projects_one, then predicting on projects_two"
       output = `#{@python} easy.py ./../../data/evaluation_projects_one_#{type}.libsvm ./../../data/evaluation_projects_two_#{type}.libsvm`
-
       mv("#{@home}/#{@libsvm}/tools/evaluation_projects_two_#{type}.libsvm.predict", "#{@home}/data/evaluation_projects_two_#{type}.predict")
-
 
       actual = []
       CSV.foreach("#{@home}/data/evaluation_projects_two_#{type}.libsvm", :col_sep => ' ') do |row|
@@ -184,9 +186,9 @@ def result_summary(prediction_file)
   return output
 end
 
-def make_libsvm
+def make_libsvm_library
   Dir.chdir("#{@libsvm}") do
-    puts "[LOG] Making libsvm"
+    puts "[LOG] Making libsvm library"
     sh "make"
     Dir.chdir("tools") do
       puts "[LOG] Modifying grid.py to use #{@max_cores} cores and " \

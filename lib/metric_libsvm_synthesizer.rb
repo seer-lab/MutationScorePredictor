@@ -2,26 +2,28 @@ class MetricLibsvmSynthesizer
 
   attr_accessor :projects, :home
 
-  def initialize(projects, home, predict=false)
+  def initialize(projects, home, type, predict=false)
     @projects = projects
     @home = home
+    @type = type
     @predict = predict
   end
 
   def make_libsvm(data_set, bounds)
 
-    # Identify the attribute order
-    puts "[LOG] Attribute Look-up List:"
-    property_count = 0
-    data_set.properties.each do |property|
+    # # Identify the attribute order
+    # # TODO Enable on Verbose
+    # puts "[LOG] Attribute Look-up List:"
+    # property_count = 0
+    # data_set.properties.each do |property|
 
-      field = property.instance_variable_name[1..-1]
+    #   field = property.instance_variable_name[1..-1]
 
-      if not ignore_field(field)
-        property_count += 1
-        puts "Attribute_#{property_count}:#{field} "
-      end
-    end
+    #   if not ignore_field(field)
+    #     property_count += 1
+    #     puts "Attribute_#{property_count}:#{field} "
+    #   end
+    # end
 
     # Split up data into sections
     sections = []
@@ -109,28 +111,27 @@ class MetricLibsvmSynthesizer
   end
 
   def statistics
-    class_data = ClassData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
-    method_data = MethodData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    if @type == "class"
+      data_set = ClassData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    elsif @type == "method"
+      data_set = MethodData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    else
+      puts "[ERROR] Type was not {class||method}"
+      return 0
+    end
 
     # Calculate the distribution
     puts "[LOG] Calculating mutation score distributions and statistic summary"
-    data = distribution_percentage("class", class_data, "mutation_score_of_covered_mutants")
-    summary_statistics("class", data, "mutation_score_of_covered_mutants")
-    data = distribution_percentage("method", method_data, "mutation_score_of_covered_mutants")
-    summary_statistics("method", data, "mutation_score_of_covered_mutants")
+    data = distribution_percentage(@type, data_set, "mutation_score_of_covered_mutants")
+    summary_statistics(@type, data, "mutation_score_of_covered_mutants")
 
     puts "[LOG] Calculating covered mutant distributions and statistic summary"
-    data = distribution_whole_number("class", class_data, "covered_mutants")
-    summary_statistics("class", data, "covered_mutants")
-    data = distribution_whole_number("method", method_data, "covered_mutants")
-    summary_statistics("method", data, "covered_mutants")
+    data = distribution_whole_number(@type, data_set, "covered_mutants")
+    summary_statistics(@type, data, "covered_mutants")
 
     # Calculate the correlation matrix
     puts "[LOG] Calculating correlation matrix"
-    correlation("class", class_data)
-    correlation("method", method_data)
-
-    puts "[LOG] Data can be found in the #{@home}/data/ directory"
+    correlation(@type, data_set)
   end
 
   def distribution_percentage(type, data_set, attribute)
