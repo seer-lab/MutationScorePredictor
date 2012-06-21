@@ -110,10 +110,10 @@ class MetricLibsvmSynthesizer
     file.close
   end
 
-  def statistics
-    if @type == "class"
+  def statistics(type)
+    if type == "class"
       data_set = ClassData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
-    elsif @type == "method"
+    elsif type == "method"
       data_set = MethodData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
     else
       puts "[ERROR] Type was not {class||method}"
@@ -122,16 +122,16 @@ class MetricLibsvmSynthesizer
 
     # Calculate the distribution
     puts "[LOG] Calculating mutation score distributions and statistic summary"
-    data = distribution_percentage(@type, data_set, "mutation_score_of_covered_mutants")
-    summary_statistics(@type, data, "mutation_score_of_covered_mutants")
+    data = distribution_percentage(type, data_set, "mutation_score_of_covered_mutants")
+    summary_statistics(type, data, "mutation_score_of_covered_mutants")
 
     puts "[LOG] Calculating covered mutant distributions and statistic summary"
-    data = distribution_whole_number(@type, data_set, "covered_mutants")
-    summary_statistics(@type, data, "covered_mutants")
+    data = distribution_whole_number(type, data_set, "covered_mutants")
+    summary_statistics(type, data, "covered_mutants")
 
     # Calculate the correlation matrix
     puts "[LOG] Calculating correlation matrix"
-    correlation(@type, data_set)
+    correlation(type, data_set)
   end
 
   def distribution_percentage(type, data_set, attribute)

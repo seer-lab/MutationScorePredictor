@@ -5,14 +5,14 @@ task :statistics => [:sqlite3] do
   # Check if there is data to update from
   if MethodData.count(:project => @evaluation_projects_one) > 0
     puts "[LOG] Calculating statistics of data set (classes)"
-    MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home, "class").statistics
+    MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).statistics("class")
   else
     puts "[ERROR] No data to cacluate statistics on (run setup_svm)"
   end
 
   if MethodData.count(:project => @evaluation_projects_one) > 0
     puts "[LOG] Calculating statistics of data set (methods)"
-    MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home, "method").statistics
+    MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).statistics("method")
   else
     puts "[ERROR] No data to cacluate statistics on (run setup_svm)"
   end
