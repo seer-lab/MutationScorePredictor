@@ -2,33 +2,16 @@ class MetricLibsvmSynthesizer
 
   attr_accessor :projects, :home
 
-  def initialize(projects, home, type, predict=false)
+  def initialize(projects, home, predict=false)
     @projects = projects
     @home = home
-    @type = type
     @predict = predict
   end
 
-  def make_libsvm(data_set, bounds)
-
-    # # Identify the attribute order
-    # # TODO Enable on Verbose
-    # puts "[LOG] Attribute Look-up List:"
-    # property_count = 0
-    # data_set.properties.each do |property|
-
-    #   field = property.instance_variable_name[1..-1]
-
-    #   if not ignore_field(field)
-    #     property_count += 1
-    #     puts "Attribute_#{property_count}:#{field} "
-    #   end
-    # end
-
+  def make_libsvm(data_set, type, bounds, indexes=nil)
     # Split up data into sections
     sections = []
     min_size = 0
-    method_sections = []
     bound_counter = 1
     bounds.each do |bound|
 
@@ -45,22 +28,37 @@ class MetricLibsvmSynthesizer
 
     content = ""
     section_count = 0
+    selected_indexes = []
     sections.each do |section|
 
+      new_section = []
       # Print section ranges with inclusive/exclusive bounds
       if section_count == sections.size - 1
-        puts "[LOG] #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]}]"
+        puts "[LOG] Found #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]}]"
       else
-        puts "[LOG] #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]})"
+        puts "[LOG] Found #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]})"
       end
-      section_count += 1
 
       if @@evaluation_under_sample && !@predict
+        # Undersample using a unique random set of indexes
         puts "[LOG] Undersampling section to #{min_size} items"
-        section = section.sample(min_size, random: @@evaluation_seed)
+        selected_indexes[section_count] = (0..section.size-1).to_a.sort{ @@evaluation_seed.rand() - 0.5 }[0..min_size-1]
+        selected_indexes[section_count].each do |i|
+          new_section << section[i]
+        end
+      elsif indexes != nil && @predict
+        # Exclude the used indexes from the predicted set
+        section.size.times do |i|
+          new_section << section[i] if !indexes[section_count].include?(i)
+        end
+        puts "[LOG] Using #{new_section.size} items, which excludes previously used items"
+      else
+        # Use complete section
+        puts "[LOG] Using all #{section.size} items"
+        new_section = section
       end
 
-      section.each do |item|
+      new_section.each do |item|
         content += section_count.to_s + " "
 
         property_count = 0
@@ -75,39 +73,38 @@ class MetricLibsvmSynthesizer
         end
         content += "\n"
       end
+      section_count += 1
     end
-    return content
-  end
-
-  def process
-
-    class_data = ClassData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
-    method_data = MethodData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
-
-    # Use bound values
-    class_bounds = []
-    class_bounds << [0.00, 0.70]
-    class_bounds << [0.70, 0.90]
-    class_bounds << [0.90, 1.00]
-    method_bounds = []
-    method_bounds << [0.00, 0.70]
-    method_bounds << [0.70, 0.90]
-    method_bounds << [0.90, 1.00]
-
-    # Create file contents with appropriate categories
-    puts "[LOG] Making class .libsvm"
-    class_libsvm = make_libsvm(class_data, class_bounds)
-    puts "[LOG] Making method .libsvm"
-    method_libsvm = make_libsvm(method_data, method_bounds)
 
     # Write out .libsvm files
-    file = File.open("#{@home}/data/evaluation_projects_class.libsvm", 'w')
-    file.write(class_libsvm)
+    file = File.open("#{@home}/data/evaluation_projects_#{type}.libsvm", 'w')
+    file.write(content)
     file.close
 
-    file = File.open("#{@home}/data/evaluation_projects_method.libsvm", 'w')
-    file.write(method_libsvm)
-    file.close
+    return selected_indexes
+  end
+
+  def process(type, indexes=nil)
+    if type == "class"
+      data_set = ClassData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    elsif type == "method"
+      data_set = MethodData.all(:project => @projects, :usable => true, :order => [:mutation_score_of_covered_mutants.asc])
+    else
+      puts "[ERROR] Type was not {class||method}"
+      return 0
+    end
+
+    # Use bound values
+    bounds = []
+    bounds << [0.00, 0.70]
+    bounds << [0.70, 0.90]
+    bounds << [0.90, 1.00]
+
+    # Create file contents with appropriate categories
+    puts "[LOG] Making #{type} .libsvm"
+    indexes = make_libsvm(data_set, type, bounds, indexes)
+
+    return indexes
   end
 
   def statistics(type)

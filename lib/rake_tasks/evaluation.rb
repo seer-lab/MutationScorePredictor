@@ -30,22 +30,22 @@ end
 
 def perform_cross_validation(type)
   puts "[LOG] Creating #{type} .libsvm file"
-  MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home, @type).process
+  MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
 
   Dir.chdir("#{@libsvm}") do
     Dir.chdir("tools") do
 
       puts "[LOG] Performing cross validation"
-      output = `#{@python} easy.py ./../../data/evaluation_projects_#{type}.libsvm`
+      output = `#{@python} easy.py #{@home}/data/evaluation_projects_#{type}.libsvm`
       values = output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
 
       puts "[LOG] Acquiring detailed results of cross validation"
       `../svm-train -v #{@cross_validation_folds} -c #{values[0]} -g #{values[1]} ./evaluation_projects_#{type}.libsvm.scale`
-      cp("./prediction_file.csv", "../../data/evaluation_projects_#{type}_prediction.csv")
+      cp("./prediction_file.csv", "#{@home}/data/evaluation_projects_#{type}_prediction.csv")
 
       puts "[LOG] Best Class Configuration = -c #{values[0]} -g #{values[1]}"
       puts "[LOG] Class Accuracy = #{values[2]}%"
-      puts result_summary("../../data/evaluation_projects_#{type}_prediction.csv")
+      puts result_summary("#{@home}/data/evaluation_projects_#{type}_prediction.csv")[1]
     end
   end
 end
@@ -60,14 +60,31 @@ end
 
 def perform_train_predict(type)
   puts "[LOG] Creating #{type} .libsvm file for projects_one"
-  MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home, type).process
+  MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
 
   puts "[LOG] Creating #{type} .libsvm file for projects_two"
-  MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, type, true).process
+  MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type)
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_two_#{type}.libsvm")
 
   make_predictions(type)
+end
+
+desc "Get the ordering of the attributes"
+task :attributes => [:sqlite3] do
+  [ClassData, MethodData].each do |type|
+    puts "[LOG] Attribute Look-up List for #{type.class}:"
+    property_count = 0
+    type.properties.each do |property|
+
+      field = property.instance_variable_name[1..-1]
+
+      if not MetricLibsvmSynthesizer.new(nil, @home).ignore_field(field)
+        property_count += 1
+        puts "Attribute_#{property_count}:#{field} "
+      end
+    end
+  end
 end
 
 def make_predictions(type)
@@ -75,35 +92,39 @@ def make_predictions(type)
     Dir.chdir("tools") do
 
       puts "[LOG] Finding best parameters for projects_one, then predicting on projects_two"
-      output = `#{@python} easy.py ./../../data/evaluation_projects_one_#{type}.libsvm ./../../data/evaluation_projects_two_#{type}.libsvm`
+      output = `#{@python} easy.py #{@home}/data/evaluation_projects_one_#{type}.libsvm #{@home}/data/evaluation_projects_two_#{type}.libsvm`
       mv("#{@home}/#{@libsvm}/tools/evaluation_projects_two_#{type}.libsvm.predict", "#{@home}/data/evaluation_projects_two_#{type}.predict")
 
-      actual = []
-      CSV.foreach("#{@home}/data/evaluation_projects_two_#{type}.libsvm", :col_sep => ' ') do |row|
-        actual << row[0]
-      end
-
-      predicted = []
-      CSV.foreach("#{@home}/data/evaluation_projects_two_#{type}.predict") do |row|
-        predicted << row[0]
-      end
-
-      content = "ACTUAL,PREDICTED"
-      actual.size.times do |i|
-        content += "\n#{actual[i.to_i]},#{predicted[i.to_i]}"
-      end
-
-      file = File.open("../../data/evaluation_projects_two_#{type}_prediction.csv", 'w')
-      file.write(content)
-      file.close
+      construct_prediction_csv(type)
 
       puts "#{type.capitalize} Prediction " + output.scan(/(Accuracy = .*$)/)[0][0]
       values = output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
       puts "Best Configuration = -c #{values[0]} -g #{values[1]}"
       puts "Cross Validation Accuracy of Training Set = #{values[2]}\%"
-      puts result_summary("../../data/evaluation_projects_two_#{type}_prediction.csv")
+      puts result_summary("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv")[1]
     end
   end
+end
+
+def construct_prediction_csv(type)
+  actual = []
+  CSV.foreach("#{@home}/data/evaluation_projects_two_#{type}.libsvm", :col_sep => ' ') do |row|
+    actual << row[0]
+  end
+
+  predicted = []
+  CSV.foreach("#{@home}/data/evaluation_projects_two_#{type}.predict") do |row|
+    predicted << row[0]
+  end
+
+  content = "ACTUAL,PREDICTED"
+  actual.size.times do |i|
+    content += "\n#{actual[i.to_i]},#{predicted[i.to_i]}"
+  end
+
+  file = File.open("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv", 'w')
+  file.write(content)
+  file.close
 end
 
 def result_summary(prediction_file)
@@ -152,6 +173,7 @@ def result_summary(prediction_file)
   output += "%-13s\n" % "F-1 Score"
 
   # Compute/store results for each category
+  results = []
   categories.each do |i|
 
     tp = matrix[[i,i]]
@@ -182,8 +204,18 @@ def result_summary(prediction_file)
     output += "%-13f" % precision
     output += "%-13f" % specificity
     output += "%-13f\n" % f1
+
+    results << {:category => i,
+                :tpr => tpr,
+                :fpr => fpr,
+                :acc => acc,
+                :recall => recall,
+                :precision => precision,
+                :specificity => specificity,
+                :f1 => f1
+              }
   end
-  return output
+  return [results, output]
 end
 
 def make_libsvm_library
