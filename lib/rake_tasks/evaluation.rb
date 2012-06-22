@@ -59,12 +59,19 @@ task :train_predict => [:sqlite3] do
 end
 
 def perform_train_predict(type)
+
+  only_unknowns = true
+
   puts "[LOG] Creating #{type} .libsvm file for projects_one"
-  MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
+  selected_indexes = MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
 
   puts "[LOG] Creating #{type} .libsvm file for projects_two"
-  MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type)
+  if only_unknowns
+    MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type, selected_indexes)
+  else
+    MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type)
+  end
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_two_#{type}.libsvm")
 
   make_predictions(type)
@@ -137,6 +144,7 @@ desc "Grid search over all individual projects on themselves"
 task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   type = args[:type]
   run = 10
+  only_unknowns = true
   results = []
   best = Hash.new(Hash.new(0))
   sort_symbol = "f1"
@@ -155,7 +163,7 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   projects.each do |project|
     @evaluation_projects_one = Array.new([project])
     @evaluation_projects_two = Array.new([project])
-    results << grid_search(type, run, sort_symbol)[0]
+    results << grid_search(type, run, sort_symbol, only_unknowns)[0]
   end
 
   # Aggregate results for {cost,gamma}
@@ -181,11 +189,12 @@ desc "Grid search on the testing data set"
 task :grid_search_testing, [:type] => [:sqlite3] do |t, args|
   type = args[:type]
   run = 10
+  only_unknowns = true
   sort_symbol = "f1"
-  puts grid_search(type, run, sort_symbol)[1]
+  puts grid_search(type, run, sort_symbol, only_unknowns)[1]
 end
 
-def grid_search(type, run, sort_symbol)
+def grid_search(type, run, sort_symbol, only_unknowns=false)
   lower_bound = 0.001
   cost_limit = 1000
   gamma_limit = 1000
@@ -199,7 +208,7 @@ def grid_search(type, run, sort_symbol)
     mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
 
     puts "[LOG] Creating #{type}.libsvm file for projects_two"
-    if @evaluation_projects_one.sort == @evaluation_projects_two.sort
+    if only_unknowns && @evaluation_projects_one.sort == @evaluation_projects_two.sort
       puts "[LOG] Projects one and two are the same, going to exclude vectors from project one for project two"
       MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type, selected_indexes)
     else

@@ -39,14 +39,14 @@ class MetricLibsvmSynthesizer
         puts "[LOG] Found #{section.count} items in [#{bounds[section_count][0]}-#{bounds[section_count][1]})"
       end
 
-      if @@evaluation_under_sample && !@predict
+      if !@predict
         # Undersample using a unique random set of indexes
         puts "[LOG] Undersampling section to #{min_size} items"
         selected_indexes[section_count] = (0..section.size-1).to_a.sort{ @@evaluation_seed.rand() - 0.5 }[0..min_size-1]
         selected_indexes[section_count].each do |i|
           new_section << section[i]
         end
-      elsif indexes != nil && @predict
+      elsif indexes != nil
         # Exclude the used indexes from the predicted set
         section.size.times do |i|
           new_section << section[i] if !indexes[section_count].include?(i)
