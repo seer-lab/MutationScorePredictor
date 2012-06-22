@@ -87,15 +87,63 @@ task :attributes => [:sqlite3] do
   end
 end
 
+desc "Grid search over all individual projects on themselves"
+task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
+  type = args[:type]
+  run = 10
+  results = []
+  best = Hash.new(Hash.new(0))
+  sort_symbol = "f1"
+  projects = [
+              "barbecue-1.5-beta1",
+              "commons-lang-3.3.1",
+              "jgap_3.6.1_full",
+              "joda-primitives-1.0",
+              "joda-time-2.0",
+              "jsoup-1.6.2",
+              "logback-core",
+              "openfast-1.1.0"
+            ]
+
+  # Perform and store grid search results for each project on itself
+  projects.each do |project|
+    @evaluation_projects_one = Array.new([project])
+    @evaluation_projects_two = Array.new([project])
+    results << grid_search(type, run, sort_symbol)[0]
+  end
+
+  # Aggregate results for {cost,gamma}
+  results.each do |result|
+    result.size.times do |i|
+      values = best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}].dup
+      values[:f1] += result[i][1][:f1]
+      values[:accuracy] += result[i][1][:accuracy]
+      values[:rank] += result[i][1][:rank]
+      best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}] = values
+    end
+  end
+
+  # Sort by rank and output
+  puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{sort_symbol})"
+  sorted_best = best.sort_by{|k,v| v[:rank]}
+  sorted_best.each do |k,v|
+    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(projects.size*run), v[:f1]/(projects.size*run), k[:cost], k[:gamma]]
+  end
+end
+
 desc "Grid search on the testing data set"
 task :grid_search_testing, [:type] => [:sqlite3] do |t, args|
   type = args[:type]
   run = 10
+  sort_symbol = "f1"
+  puts grid_search(type, run, sort_symbol)[1]
+end
+
+def grid_search(type, run, sort_symbol)
   lower_bound = 0.001
   cost_limit = 1000
   gamma_limit = 1000
   step_multiplier = 10
-  sort_symbol = "f1"
 
   best = Hash.new(Hash.new(0))
   run.times do |i|
@@ -167,11 +215,12 @@ task :grid_search_testing, [:type] => [:sqlite3] do |t, args|
   end
 
   # Sort by rank and output
-  puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{sort_symbol})"
+  output = "[LOG] Best Parameter and Measures - Sorted by Rank(#{sort_symbol})"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/run, v[:f1]/run, k[:cost], k[:gamma]]
+    output += "\nRank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/run, v[:f1]/run, k[:cost], k[:gamma]]
   end
+  return [sorted_best, output]
 end
 
 def make_predictions(type)
