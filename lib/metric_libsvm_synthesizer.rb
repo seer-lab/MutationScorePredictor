@@ -12,7 +12,6 @@ class MetricLibsvmSynthesizer
     # Split up data into sections
     sections = []
     min_size = 0
-    divisor = 1
     bound_counter = 1
     bounds.each do |bound|
 
@@ -27,7 +26,7 @@ class MetricLibsvmSynthesizer
       min_size = sections.last.count if min_size == 0 || sections.last.count < min_size
     end
 
-    min_size = min_size / divisor
+    min_size = min_size / @@divisor
     used_count = 0
     total_count = 0
     content = ""
@@ -104,15 +103,9 @@ class MetricLibsvmSynthesizer
       return 0
     end
 
-    # Use bound values
-    bounds = []
-    bounds << [0.00, 0.70]
-    bounds << [0.70, 0.90]
-    bounds << [0.90, 1.00]
-
     # Create file contents with appropriate categories
     puts "[LOG] Making #{type} .libsvm"
-    indexes = make_libsvm(data_set, type, bounds, indexes)
+    indexes = make_libsvm(data_set, type, @@bounds, indexes)
 
     return indexes
   end
@@ -212,11 +205,10 @@ class MetricLibsvmSynthesizer
 
   def summary_statistics(type, data_set, attribute)
     content = []
-    percentiles = [25,50,75]  # Must be in ascending order
-    percentile_indexes = calculate_percentiles(percentiles, data_set)
+    percentile_indexes = calculate_percentiles(@@percentiles, data_set)
 
-    (percentiles.size).times do |i|
-      content << "#{percentiles[i]}-percentile-index: #{percentile_indexes[i]}"
+    (@@percentiles.size).times do |i|
+      content << "#{@@percentiles[i]}-percentile-index: #{percentile_indexes[i]}"
     end
 
     scale_data = data_set.to_scale

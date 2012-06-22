@@ -27,6 +27,16 @@ DataMapper::Model.raise_on_save_failure = true
 # Variables related to Evaluation (cross-validation, prediction, statistics)
 #   projects_one is the primary set of projects to use, while projects_two is
 #   to be used for prediction accross projects (train on one, predict on two)
+@@projects = [  # Do not comment these out, they are the general set
+              "barbecue-1.5-beta1",
+              "commons-lang-3.3.1",
+              "jgap_3.6.1_full",
+              "joda-primitives-1.0",
+              "joda-time-2.0",
+              "jsoup-1.6.2",
+              "logback-core",
+              "openfast-1.1.0"
+            ]
 @evaluation_projects_one = [
                             "barbecue-1.5-beta1",
                             "commons-lang-3.3.1",
@@ -50,6 +60,20 @@ DataMapper::Model.raise_on_save_failure = true
                             ""
                           ]
 @@evaluation_seed = Random.new(srand)  # Use srand or actual seed value
+@@bounds = [[0.00, 0.70], [0.70, 0.90], [0.90, 1.00]]  # Category bound values
+@@divisor = 1  # Amount to divide the undersampled data by (use less of it)
+@only_unknowns = true  # Use only the unknown (untrained) items if possible
+
+# Statistics variables
+@@percentiles = [25,50,75]  # Must be in ascending order
+
+# Grid Search variables
+@lower_bound = 0.001
+@cost_limit = 1000
+@gamma_limit = 1000
+@step_multiplier = 10
+@run = 10
+@sort_symbol = "f1"  # f1 || accuracy
 
 # Variables related to Javalanche's database usage
 @use_mysql = false

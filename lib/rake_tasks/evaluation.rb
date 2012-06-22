@@ -7,14 +7,14 @@ task :statistics => [:sqlite3] do
     puts "[LOG] Calculating statistics of data set (classes)"
     MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).statistics("class")
   else
-    puts "[ERROR] No data to cacluate statistics on (run setup_svm)"
+    puts "[ERROR] No data to calculate statistics on (run setup_svm)"
   end
 
   if MethodData.count(:project => @evaluation_projects_one) > 0
     puts "[LOG] Calculating statistics of data set (methods)"
     MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).statistics("method")
   else
-    puts "[ERROR] No data to cacluate statistics on (run setup_svm)"
+    puts "[ERROR] No data to calculate statistics on (run setup_svm)"
   end
 
   puts "[LOG] Data can be found in the #{@home}/data/ directory"
@@ -59,15 +59,12 @@ task :train_predict => [:sqlite3] do
 end
 
 def perform_train_predict(type)
-
-  only_unknowns = true
-
   puts "[LOG] Creating #{type} .libsvm file for projects_one"
   selected_indexes = MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
 
   puts "[LOG] Creating #{type} .libsvm file for projects_two"
-  if only_unknowns
+  if @only_unknowns
     MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type, selected_indexes)
   else
     MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type)
@@ -97,28 +94,16 @@ end
 desc "Grid search over all sets of all projects except one vs that one"
 task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
   type = args[:type]
-  run = 10
   results = []
   best = Hash.new(Hash.new(0))
-  sort_symbol = "f1"
-  projects = [
-              "barbecue-1.5-beta1",
-              "commons-lang-3.3.1",
-              "jgap_3.6.1_full",
-              "joda-primitives-1.0",
-              "joda-time-2.0",
-              "jsoup-1.6.2",
-              "logback-core",
-              "openfast-1.1.0"
-            ]
 
   # Perform and store grid search results for all project except one vs that one
-  projects.size.times do |i|
-    tmp = Array.new(projects)
+  @projects.size.times do |i|
+    tmp = Array.new(@projects)
     tmp.delete_at(i)
     @evaluation_projects_one = tmp
-    @evaluation_projects_two = Array.new([projects[i]])
-    results << grid_search(type, run, sort_symbol)[0]
+    @evaluation_projects_two = Array.new([@projects[i]])
+    results << grid_search(type, @run, @sort_symbol)[0]
   end
 
   # Aggregate results for {cost,gamma}
@@ -133,21 +118,18 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
   end
 
   # Sort by rank and output
-  puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{sort_symbol})"
+  puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(projects.size*run), v[:f1]/(projects.size*run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(projects.size*@run), v[:f1]/(projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 
 desc "Grid search over all individual projects on themselves"
 task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   type = args[:type]
-  run = 10
-  only_unknowns = true
   results = []
   best = Hash.new(Hash.new(0))
-  sort_symbol = "f1"
   projects = [
               "barbecue-1.5-beta1",
               "commons-lang-3.3.1",
@@ -163,7 +145,7 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   projects.each do |project|
     @evaluation_projects_one = Array.new([project])
     @evaluation_projects_two = Array.new([project])
-    results << grid_search(type, run, sort_symbol, only_unknowns)[0]
+    results << grid_search(type, @run, @sort_symbol, @only_unknowns)[0]
   end
 
   # Aggregate results for {cost,gamma}
@@ -178,28 +160,20 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   end
 
   # Sort by rank and output
-  puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{sort_symbol})"
+  puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(projects.size*run), v[:f1]/(projects.size*run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(projects.size*@run), v[:f1]/(projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 
 desc "Grid search on the testing data set"
 task :grid_search_testing, [:type] => [:sqlite3] do |t, args|
   type = args[:type]
-  run = 10
-  only_unknowns = true
-  sort_symbol = "f1"
-  puts grid_search(type, run, sort_symbol, only_unknowns)[1]
+  puts grid_search(type, @run, @sort_symbol, @only_unknowns)[1]
 end
 
 def grid_search(type, run, sort_symbol, only_unknowns=false)
-  lower_bound = 0.001
-  cost_limit = 1000
-  gamma_limit = 1000
-  step_multiplier = 10
-
   best = Hash.new(Hash.new(0))
   run.times do |i|
 
@@ -224,9 +198,9 @@ def grid_search(type, run, sort_symbol, only_unknowns=false)
 
       # Grid Search
       ranking = []
-      cost = lower_bound
-      gamma = lower_bound
-      while cost <= cost_limit && gamma <= gamma_limit do
+      cost = @lower_bound
+      gamma = @lower_bound
+      while cost <= @cost_limit && gamma <= @gamma_limit do
 
         # Train using training set
         `./svm-train -c #{cost} -g #{gamma} ./evaluation_projects_one_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model`
@@ -249,11 +223,11 @@ def grid_search(type, run, sort_symbol, only_unknowns=false)
                    }
 
         # Move to the next iteration for the grid search based on the bounds
-        if cost > (cost_limit / step_multiplier) && gamma <= (gamma_limit / step_multiplier)
-          cost = lower_bound
-          gamma = gamma * step_multiplier
+        if cost > (@cost_limit / @step_multiplier) && gamma <= (@gamma_limit / @step_multiplier)
+          cost = @lower_bound
+          gamma = gamma * @step_multiplier
         else
-          cost = cost * step_multiplier
+          cost = cost * @step_multiplier
         end
       end
 
