@@ -12,6 +12,7 @@ class MetricLibsvmSynthesizer
     # Split up data into sections
     sections = []
     min_size = 0
+    divisor = 1
     bound_counter = 1
     bounds.each do |bound|
 
@@ -26,6 +27,9 @@ class MetricLibsvmSynthesizer
       min_size = sections.last.count if min_size == 0 || sections.last.count < min_size
     end
 
+    min_size = min_size / divisor
+    used_count = 0
+    total_count = 0
     content = ""
     section_count = 0
     selected_indexes = []
@@ -58,6 +62,11 @@ class MetricLibsvmSynthesizer
         new_section = section
       end
 
+      # Keep track of the number of items used from this data set
+      used_count += new_section.size
+      total_count += section.size
+
+      # Format the .libsvm file using selected items
       new_section.each do |item|
         content += section_count.to_s + " "
 
@@ -81,6 +90,7 @@ class MetricLibsvmSynthesizer
     file.write(content)
     file.close
 
+    puts "[LOG] .libsvm file uses #{used_count}/#{total_count} (#{used_count*100/total_count.to_f}\%) of the available data"
     return selected_indexes
   end
 
