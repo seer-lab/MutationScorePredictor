@@ -58,6 +58,40 @@ task :train_predict => [:sqlite3] do
   perform_train_predict("method")
 end
 
+task :train_predict_type_with_cost_gamma, :type, :cost, :gamma, :needs => [:sqlite3] do |t, args|
+  type = args[:type]
+  puts "[LOG] Creating #{type} .libsvm file for projects_one"
+  selected_indexes = MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
+  mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
+
+  puts "[LOG] Creating #{type}.libsvm file for projects_two"
+  if @only_unknowns && @evaluation_projects_one.sort == @evaluation_projects_two.sort
+    puts "[LOG] Projects one and two are the same, going to exclude vectors from project one for project two"
+    MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type, selected_indexes)
+  else
+    MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type)
+  end
+  mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_two_#{type}.libsvm")
+
+  Dir.chdir("#{@libsvm}") do
+    # Scale training and test set using same scale values
+    `./svm-scale -s scale_values.txt #{@home}/data/evaluation_projects_one_#{type}.libsvm > ./evaluation_projects_one_#{type}.libsvm.scale`
+    `./svm-scale -r scale_values.txt #{@home}/data/evaluation_projects_two_#{type}.libsvm > ./evaluation_projects_two_#{type}.libsvm.scale`
+
+
+    # Train using training set
+    `./svm-train -c #{args[:cost]} -g #{args[:gamma]} ./evaluation_projects_one_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model`
+
+    # Predict using test set
+    output = `./svm-predict ./evaluation_projects_two_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model ./evaluation_projects_two_#{type}.libsvm.predict`
+    mv("#{@home}/#{@libsvm}/evaluation_projects_two_#{type}.libsvm.predict", "#{@home}/data/evaluation_projects_two_#{type}.predict")
+
+    construct_prediction_csv(type)
+
+    puts results = result_summary("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv")[1]
+  end
+end
+
 def perform_train_predict(type)
   puts "[LOG] Creating #{type} .libsvm file for projects_one"
   selected_indexes = MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
