@@ -155,7 +155,7 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
   puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(projects.size*@run), v[:f1]/(projects.size*@run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 
@@ -164,19 +164,9 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   type = args[:type]
   results = []
   best = Hash.new(Hash.new(0))
-  projects = [
-              "barbecue-1.5-beta1",
-              "commons-lang-3.3.1",
-              "jgap_3.6.1_full",
-              "joda-primitives-1.0",
-              "joda-time-2.0",
-              "jsoup-1.6.2",
-              "logback-core",
-              "openfast-1.1.0"
-            ]
 
   # Perform and store grid search results for each project on itself
-  projects.each do |project|
+  @projects.each do |project|
     @evaluation_projects_one = Array.new([project])
     @evaluation_projects_two = Array.new([project])
     results << grid_search(type, @run, @sort_symbol, @only_unknowns)[0]
@@ -197,7 +187,7 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(projects.size*@run), v[:f1]/(projects.size*@run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 

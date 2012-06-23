@@ -27,7 +27,7 @@ DataMapper::Model.raise_on_save_failure = true
 # Variables related to Evaluation (cross-validation, prediction, statistics)
 #   projects_one is the primary set of projects to use, while projects_two is
 #   to be used for prediction accross projects (train on one, predict on two)
-@@projects = [  # Do not comment these out, they are the general set
+@projects = [  # Do not comment these out, they are the general set
               "barbecue-1.5-beta1",
               "commons-lang-3.3.1",
               "jgap_3.6.1_full",
