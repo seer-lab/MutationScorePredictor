@@ -15,13 +15,14 @@ task :cross_validation_all_features_experiment do
 
       # Ignore all other projects except the 'all' project
       next if project != "all"
+      file = "#{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt"
 
       FileUtils.cp("#{@experiment_resources_dir}/cross_validation/#{project}/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
-      if File.exist?("#{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt")
-        FileUtils.rm("#{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt")
+      if File.exist?(file)
+        FileUtils.rm(file)
       end
       @experiment_runs.times do |i|
-        `time rake cross_validation >> #{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt`
+        `time rake cross_validation >> #{file}`
       end
     end
   end
@@ -44,13 +45,14 @@ task :cross_validation_all_projects_experiment do
 
       # Ignore the 'all' project
       next if project == "all"
+      file = "#{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt"
 
       FileUtils.cp("#{@experiment_resources_dir}/cross_validation/#{project}/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
-      if File.exist?("#{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt")
-        FileUtils.rm("#{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt")
+      if File.exist?(file)
+        FileUtils.rm(file)
       end
       @experiment_runs.times do |i|
-        `time rake cross_validation >> #{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt`
+        `time rake cross_validation >> #{file}`
       end
     end
   end
