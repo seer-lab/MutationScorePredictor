@@ -59,7 +59,7 @@ task :train_predict => [:sqlite3] do
 end
 
 task :train_predict_type_with_cost_gamma, :type, :cost, :gamma, :needs => [:sqlite3] do |t, args|
-  type = args[:type]
+  type = args[:type] || "method"
   puts "[LOG] Creating #{type} .libsvm file for projects_one"
   selected_indexes = MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
@@ -77,7 +77,6 @@ task :train_predict_type_with_cost_gamma, :type, :cost, :gamma, :needs => [:sqli
     # Scale training and test set using same scale values
     `./svm-scale -s scale_values.txt #{@home}/data/evaluation_projects_one_#{type}.libsvm > ./evaluation_projects_one_#{type}.libsvm.scale`
     `./svm-scale -r scale_values.txt #{@home}/data/evaluation_projects_two_#{type}.libsvm > ./evaluation_projects_two_#{type}.libsvm.scale`
-
 
     # Train using training set
     `./svm-train -c #{args[:cost]} -g #{args[:gamma]} ./evaluation_projects_one_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model`
@@ -127,7 +126,7 @@ end
 
 desc "Grid search over all sets of all projects except one vs that one"
 task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
-  type = args[:type]
+  type = args[:type] || "method"
   results = []
   best = Hash.new(Hash.new(0))
 
@@ -161,7 +160,7 @@ end
 
 desc "Grid search over all individual projects on themselves"
 task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
-  type = args[:type]
+  type = args[:type] || "method"
   results = []
   best = Hash.new(Hash.new(0))
 
@@ -187,13 +186,13 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(projects.size*@run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(@projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 
 desc "Grid search on the testing data set"
 task :grid_search_testing, [:type] => [:sqlite3] do |t, args|
-  type = args[:type]
+  type = args[:type] || "method"
   puts grid_search(type, @run, @sort_symbol, @only_unknowns)[1]
 end
 
