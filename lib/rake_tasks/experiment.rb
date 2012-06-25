@@ -58,6 +58,36 @@ task :cross_validation_all_projects_experiment do
   end
 end
 
+desc "Perform training/prediction using the three combined feature sets on all individual projects and subsets of all(excluding one) vs. one"
+task :train_predict_all_projects_experiment do
+
+  features = Dir.entries("#{@experiment_resources_dir}/feature_sets").select {|entry| !File.directory? File.join("#{@experiment_resources_dir}/feature_sets",entry) and !(entry =='.' || entry == '..') }
+  projects = Dir.entries("#{@experiment_resources_dir}/prediction").select {|entry| File.directory? File.join("#{@experiment_resources_dir}/prediction",entry) and !(entry =='.' || entry == '..') }
+
+  features.each do |feature|
+
+    # Ignore all features that are not the combine sets
+    next if !feature.include?("combine")
+
+    FileUtils.cp("#{@experiment_resources_dir}/feature_sets/#{feature}", "#{@home}/lib/feature_sets.rb")
+
+    projects.each do |project|
+
+      # Ignore the 'all' project
+      next if project == "all"
+      file = "#{@experiment_resources_dir}/prediction/#{project}/prediction_#{feature.chomp(".rb")}.txt"
+
+      FileUtils.cp("#{@experiment_resources_dir}/prediction/#{project}/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
+      if File.exist?(file)
+        FileUtils.rm(file)
+      end
+      @experiment_runs.times do |i|
+        `time rake train_predict >> #{file}`
+      end
+    end
+  end
+end
+
 desc "Analyze the class/method mean and standard deviation of the experiment results"
 task :analyze_experiment_results do
 
