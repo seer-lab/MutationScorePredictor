@@ -43,8 +43,8 @@ def perform_cross_validation(type)
       `../svm-train -v #{@cross_validation_folds} -c #{values[0]} -g #{values[1]} ./evaluation_projects_#{type}.libsvm.scale`
       cp("./prediction_file.csv", "#{@home}/data/evaluation_projects_#{type}_prediction.csv")
 
-      puts "[LOG] Best Class Configuration = -c #{values[0]} -g #{values[1]}"
-      puts "[LOG] Class Accuracy = #{values[2]}%"
+      puts "[LOG] Best #{type.capitalize} Configuration = -c #{values[0]} -g #{values[1]}"
+      puts "[LOG] #{type.capitalize} Accuracy = #{values[2]}%"
       puts result_summary("#{@home}/data/evaluation_projects_#{type}_prediction.csv")[1]
     end
   end
