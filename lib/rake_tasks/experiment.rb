@@ -104,6 +104,9 @@ task :grid_search_experiment do
 
     FileUtils.cp("#{@experiment_resources_dir}/feature_sets/#{feature}", "#{@home}/lib/feature_sets.rb")
 
+    `time rake grid_search_all_vs_one["class"] > #{@experiment_resources_dir}/grid_search/all_vs_one_class_#{feature.chomp(".rb")}.txt`
+    `time rake grid_search_all_vs_one["method"] > #{@experiment_resources_dir}/grid_search/all_vs_one_method_#{feature.chomp(".rb")}.txt`
+
     # Change the only_unknown variable as well
     only_unknowns.each do |unknown|
       changes = File.open("#{@home}/lib/rake_tasks/configuration.rb").read.sub(/@only_unknowns = (true|false)/, "@only_unknowns = #{unknown}")
@@ -111,8 +114,6 @@ task :grid_search_experiment do
 
       `time rake grid_search_each_self["class"] > #{@experiment_resources_dir}/grid_search/each_individual_class_unknown_#{unknown}_#{feature.chomp(".rb")}.txt`
       `time rake grid_search_each_self["method"] > #{@experiment_resources_dir}/grid_search/each_individual_method_unknown_#{unknown}_#{feature.chomp(".rb")}.txt`
-      `time rake grid_search_all_vs_one["class"] > #{@experiment_resources_dir}/grid_search/all_vs_one_class_unknown_#{unknown}_#{feature.chomp(".rb")}.txt`
-      `time rake grid_search_all_vs_one["method"] > #{@experiment_resources_dir}/grid_search/all_vs_one_method_unknown_#{unknown}_#{feature.chomp(".rb")}.txt`
     end
   end
 
