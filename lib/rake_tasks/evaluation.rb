@@ -154,7 +154,7 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
   puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(projects.size*@run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(@projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 
