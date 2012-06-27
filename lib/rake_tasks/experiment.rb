@@ -103,9 +103,6 @@ task :grid_search_experiment do
   original_only_unknown = File.open("#{@home}/lib/rake_tasks/configuration.rb").read.scan(/@only_unknowns = (true|false)/)[0][0]
   only_unknowns = [true, false]
 
-  # Set configuration to enable all projects (used for the 'all' project)
-  FileUtils.cp("#{@experiment_resources_dir}/cross_validation/all/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
-
   features.each do |feature|
 
     # Ignore all features that are not the combine sets
@@ -114,9 +111,8 @@ task :grid_search_experiment do
 
     FileUtils.cp("#{@experiment_resources_dir}/feature_sets/#{feature}", "#{@home}/lib/feature_sets.rb")
 
-    # Grid search the 'all' project
-    `time rake grid_search_testing["class"] > #{@experiment_resources_dir}/grid_search/all_class_#{feature.chomp(".rb")}.txt`
-    `time rake grid_search_testing["method"] > #{@experiment_resources_dir}/grid_search/all_method_#{feature.chomp(".rb")}.txt`
+    `time rake grid_search_all_self["class"] > #{@experiment_resources_dir}/grid_search/all_self_class_#{feature.chomp(".rb")}.txt`
+    `time rake grid_search_all_self["method"] > #{@experiment_resources_dir}/grid_search/all_self_method_#{feature.chomp(".rb")}.txt`
 
     `time rake grid_search_all_vs_one["class"] > #{@experiment_resources_dir}/grid_search/all_vs_one_class_#{feature.chomp(".rb")}.txt`
     `time rake grid_search_all_vs_one["method"] > #{@experiment_resources_dir}/grid_search/all_vs_one_method_#{feature.chomp(".rb")}.txt`

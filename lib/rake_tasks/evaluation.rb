@@ -197,6 +197,18 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   end
 end
 
+desc "Grid search over all projects on themselves"
+task :grid_search_all_self, [:type] => [:sqlite3] do |t, args|
+  type = args[:type] || "method"
+  results = []
+  best = Hash.new(Hash.new(0))
+
+  # Perform and store grid search results for each project on itself
+  @evaluation_projects_one = @projects
+  @evaluation_projects_two = @projects
+  puts grid_search(type, @run, @sort_symbol, @only_unknowns)[1]
+end
+
 desc "Grid search on the testing data set"
 task :grid_search_testing, [:type] => [:sqlite3] do |t, args|
   type = args[:type] || "method"
