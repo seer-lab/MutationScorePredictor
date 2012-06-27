@@ -23,6 +23,7 @@ end
 # Perform cross validation of the project
 desc "Perform cross validation on the project"
 task :cross_validation => [:sqlite3] do
+  puts "[LOG] Using project(s) #{@evaluation_projects_one}"
   make_libsvm_library
   perform_cross_validation("class")
   perform_cross_validation("method")
@@ -60,6 +61,7 @@ end
 
 task :train_predict_type_with_cost_gamma, :type, :cost, :gamma, :needs => [:sqlite3] do |t, args|
   type = args[:type] || "method"
+  puts "[LOG] Using project(s) #{@evaluation_projects_one} vs project(s) #{@evaluation_projects_two}"
   puts "[LOG] Creating #{type} .libsvm file for projects_one"
   selected_indexes = MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
@@ -92,6 +94,7 @@ task :train_predict_type_with_cost_gamma, :type, :cost, :gamma, :needs => [:sqli
 end
 
 def perform_train_predict(type)
+  puts "[LOG] Using project(s) #{@evaluation_projects_one} vs project(s) #{@evaluation_projects_two}"
   puts "[LOG] Creating #{type} .libsvm file for projects_one"
   selected_indexes = MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
@@ -136,7 +139,9 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
     tmp.delete_at(i)
     @evaluation_projects_one = tmp
     @evaluation_projects_two = Array.new([@projects[i]])
-    results << grid_search(type, @run, @sort_symbol)[0]
+    tmp = grid_search(type, @run, @sort_symbol)
+    results << tmp[0]
+    puts tmp[1]
   end
 
   # Aggregate results for {cost,gamma}
@@ -151,7 +156,7 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
   end
 
   # Sort by rank and output
-  puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
+  puts "[LOG] Overall Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
     puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(@projects.size*@run), k[:cost], k[:gamma]]
@@ -168,7 +173,9 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   @projects.each do |project|
     @evaluation_projects_one = Array.new([project])
     @evaluation_projects_two = Array.new([project])
-    results << grid_search(type, @run, @sort_symbol, @only_unknowns)[0]
+    tmp = grid_search(type, @run, @sort_symbol, @only_unknowns)
+    results << tmp[0]
+    puts tmp[1]
   end
 
   # Aggregate results for {cost,gamma}
@@ -183,7 +190,7 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
   end
 
   # Sort by rank and output
-  puts "[LOG] Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
+  puts "[LOG] Overall Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
     puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(@projects.size*@run), k[:cost], k[:gamma]]
@@ -198,6 +205,8 @@ end
 
 def grid_search(type, run, sort_symbol, only_unknowns=false)
   best = Hash.new(Hash.new(0))
+  puts "[LOG] Using project(s) #{@evaluation_projects_one} vs project(s) #{@evaluation_projects_two}"
+
   run.times do |i|
 
     puts "[LOG] Creating #{type} .libsvm file for projects_one"

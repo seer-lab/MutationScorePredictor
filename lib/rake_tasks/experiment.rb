@@ -15,6 +15,8 @@ task :cross_validation_all_features_experiment do
 
       # Ignore all other projects except the 'all' project
       next if project != "all"
+      puts "[LOG] Feature Set: #{feature}  Project: #{project}"
+
       file = "#{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt"
 
       FileUtils.cp("#{@experiment_resources_dir}/cross_validation/#{project}/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
@@ -45,6 +47,8 @@ task :cross_validation_all_projects_experiment do
 
       # Ignore the 'all' project
       next if project == "all"
+      puts "[LOG] Feature Set: #{feature}  Project: #{project}"
+
       file = "#{@experiment_resources_dir}/cross_validation/#{project}/cross_validation_#{feature.chomp(".rb")}.txt"
 
       FileUtils.cp("#{@experiment_resources_dir}/cross_validation/#{project}/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
@@ -75,6 +79,8 @@ task :train_predict_all_projects_experiment do
 
       # Ignore the 'all' project
       next if project == "all"
+      puts "[LOG] Feature Set: #{feature}  Project: #{project}"
+
       file = "#{@experiment_resources_dir}/prediction/#{project}/prediction_#{feature.chomp(".rb")}.txt"
 
       FileUtils.cp("#{@experiment_resources_dir}/prediction/#{project}/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
@@ -104,6 +110,7 @@ task :grid_search_experiment do
 
     # Ignore all features that are not the combine sets
     next if !feature.include?("combine")
+    puts "[LOG] Feature Set: #{feature}"
 
     FileUtils.cp("#{@experiment_resources_dir}/feature_sets/#{feature}", "#{@home}/lib/feature_sets.rb")
 
