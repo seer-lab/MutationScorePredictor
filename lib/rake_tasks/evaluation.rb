@@ -120,7 +120,7 @@ task :attributes => [:sqlite3] do
 
       field = property.instance_variable_name[1..-1]
 
-      if not MetricLibsvmSynthesizer.new(nil, @home).ignore_field(field)
+      if not ignore_field(field)
         property_count += 1
         puts "Attribute_#{property_count}:#{field} "
       end
