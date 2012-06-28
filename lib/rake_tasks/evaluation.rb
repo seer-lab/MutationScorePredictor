@@ -100,7 +100,7 @@ def perform_train_predict(type)
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")
 
   puts "[LOG] Creating #{type} .libsvm file for projects_two"
-  if @only_unknowns
+  if @only_unknowns && @evaluation_projects_one.sort == @evaluation_projects_two.sort
     MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type, selected_indexes)
   else
     MetricLibsvmSynthesizer.new(@evaluation_projects_two, @home, true).process(type)
