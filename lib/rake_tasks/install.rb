@@ -122,6 +122,10 @@ task :install_libsvm do
     puts "[LOG] Patching svm-train.c"
     sh "patch ./#{@libsvm}/svm-train.c -i svm-train.c.patch"
 
+    # Patching easy.py
+    puts "[LOG] Patching easy.py"
+    sh "patch ./#{@libsvm}/tools/easy.py -i easy.py.patch"
+
     # Deleting libsvm's tar file
     puts "[LOG] Deleting #{@libsvm_tar}"
     rm @libsvm_tar

@@ -46,7 +46,8 @@ def perform_cross_validation(type)
 
       puts "[LOG] Best #{type.capitalize} Configuration = -c #{values[0]} -g #{values[1]}"
       puts "[LOG] #{type.capitalize} Accuracy = #{values[2]}%"
-      puts result_summary("#{@home}/data/evaluation_projects_#{type}_prediction.csv")[1]
+      labels = construct_prediction_csv(type, true)
+      puts result_summary("#{@home}/data/evaluation_projects_#{type}_prediction.csv", labels)[1]
     end
   end
 end
@@ -81,15 +82,15 @@ task :train_predict_type_with_cost_gamma, :type, :cost, :gamma, :needs => [:sqli
     `./svm-scale -r scale_values.txt #{@home}/data/evaluation_projects_two_#{type}.libsvm > ./evaluation_projects_two_#{type}.libsvm.scale`
 
     # Train using training set
-    `./svm-train -c #{args[:cost]} -g #{args[:gamma]} ./evaluation_projects_one_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model`
+    `./svm-train -b 1 -c #{args[:cost]} -g #{args[:gamma]} ./evaluation_projects_one_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model`
 
     # Predict using test set
-    output = `./svm-predict ./evaluation_projects_two_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model ./evaluation_projects_two_#{type}.libsvm.predict`
+    output = `./svm-predict -b 1 ./evaluation_projects_two_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model ./evaluation_projects_two_#{type}.libsvm.predict`
     mv("#{@home}/#{@libsvm}/evaluation_projects_two_#{type}.libsvm.predict", "#{@home}/data/evaluation_projects_two_#{type}.predict")
 
-    construct_prediction_csv(type)
+    labels = construct_prediction_csv(type)
 
-    puts results = result_summary("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv")[1]
+    puts results = result_summary("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv", labels)[1]
   end
 end
 
@@ -149,6 +150,7 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
     result.size.times do |i|
       values = best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}].dup
       values[:f1] += result[i][1][:f1]
+      values[:coarse_auroc] += result[i][1][:coarse_auroc]
       values[:accuracy] += result[i][1][:accuracy]
       values[:rank] += result[i][1][:rank]
       best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}] = values
@@ -157,9 +159,11 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
 
   # Sort by rank and output
   puts "[LOG] Overall Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
+  puts "F-1 Score and Coarse auROC are calculated using (total_value / \# of categories)"
+  puts "The divisor might not be consistent based on the availability of data in all categories"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(@projects.size*@run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F1:%6f CauROC:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(@projects.size*@run), v[:coarse_auroc]/(@projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 
@@ -183,6 +187,7 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
     result.size.times do |i|
       values = best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}].dup
       values[:f1] += result[i][1][:f1]
+      values[:coarse_auroc] += result[i][1][:coarse_auroc]
       values[:accuracy] += result[i][1][:accuracy]
       values[:rank] += result[i][1][:rank]
       best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}] = values
@@ -191,9 +196,11 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
 
   # Sort by rank and output
   puts "[LOG] Overall Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
+  puts "F-1 Score and Coarse auROC are calculated using (total_value / \# of categories)"
+  puts "The divisor might not be consistent based on the availability of data in all categories"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(@projects.size*@run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F1:%6f CauROC:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f1]/(@projects.size*@run), v[:coarse_auroc]/(@projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 
@@ -247,23 +254,26 @@ def grid_search(type, run, sort_symbol, only_unknowns=false)
       while cost <= @cost_limit && gamma <= @gamma_limit do
 
         # Train using training set
-        `./svm-train -c #{cost} -g #{gamma} ./evaluation_projects_one_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model`
+        `./svm-train -b 1 -c #{cost} -g #{gamma} ./evaluation_projects_one_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model`
 
         # Predict using test set
-        output = `./svm-predict ./evaluation_projects_two_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model ./evaluation_projects_two_#{type}.libsvm.predict`
+        output = `./svm-predict -b 1 ./evaluation_projects_two_#{type}.libsvm.scale ./evaluation_projects_one_#{type}.libsvm.model ./evaluation_projects_two_#{type}.libsvm.predict`
         mv("#{@home}/#{@libsvm}/evaluation_projects_two_#{type}.libsvm.predict", "#{@home}/data/evaluation_projects_two_#{type}.predict")
 
-        construct_prediction_csv(type)
+        labels = construct_prediction_csv(type)
 
-        results = result_summary("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv")
-        f1 = results[0].inject(0){|sum,a| sum + a[:f1].to_s.to_f}
+        results = result_summary("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv", labels)
+
+        accuracy = results[0].inject(0){|sum,a| sum + a[:accuracy].to_s.to_f}/labels.size
+        f1 = results[0].inject(0){|sum,a| sum + a[:f1].to_s.to_f}/labels.size
+        coarse_auroc = results[0].inject(0){|sum,a| sum + a[:coarse_auroc].to_s.to_f}/labels.size
 
         # Identify and store parameters and measures
-        accuracy = output.scan(/Accuracy = ([\d]*.[\d]*)/)[0][0].to_f
         ranking << {:cost => cost,
                     :gamma => gamma,
                     :accuracy => accuracy,
-                    :f1 => f1
+                    :f1 => f1,
+                    :coarse_auroc => coarse_auroc
                    }
 
         # Move to the next iteration for the grid search based on the bounds
@@ -280,6 +290,7 @@ def grid_search(type, run, sort_symbol, only_unknowns=false)
       sorted_ranking.size.times do |i|
         values = best[{:cost => sorted_ranking[i][:cost], :gamma => sorted_ranking[i][:gamma]}].dup
         values[:f1] += sorted_ranking[i][:f1]
+        values[:coarse_auroc] += sorted_ranking[i][:coarse_auroc]
         values[:accuracy] += sorted_ranking[i][:accuracy]
         values[:rank] += i
         best[{:cost => sorted_ranking[i][:cost], :gamma => sorted_ranking[i][:gamma]}] = values
@@ -289,9 +300,11 @@ def grid_search(type, run, sort_symbol, only_unknowns=false)
 
   # Sort by rank and output
   output = "[LOG] Best Parameter and Measures - Sorted by Rank(#{sort_symbol})"
+  output += "\nF-1 Score and Coarse auROC are calculated using (total_value / \# of categories)"
+  output += "\nThe divisor might not be consistent based on the availability of data in all categories"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    output += "\nRank:%-6d Accuracy:%6f F1:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/run, v[:f1]/run, k[:cost], k[:gamma]]
+    output += "\nRank:%-6d Accuracy:%6f F1:%6f CauROC:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/run, v[:f1]/run, v[:coarse_auroc]/run, k[:cost], k[:gamma]]
   end
   return [sorted_best, output]
 end
@@ -304,43 +317,66 @@ def make_predictions(type)
       output = `#{@python} easy.py #{@home}/data/evaluation_projects_one_#{type}.libsvm #{@home}/data/evaluation_projects_two_#{type}.libsvm`
       mv("#{@home}/#{@libsvm}/tools/evaluation_projects_two_#{type}.libsvm.predict", "#{@home}/data/evaluation_projects_two_#{type}.predict")
 
-      construct_prediction_csv(type)
+      labels = construct_prediction_csv(type)
 
       puts "#{type.capitalize} Prediction " + output.scan(/(Accuracy = .*$)/)[0][0]
       values = output.scan(/Best c=(\d+\.?\d*), g=(\d+\.?\d*) CV rate=(\d+\.?\d*)/)[0]
       puts "Best Configuration = -c #{values[0]} -g #{values[1]}"
       puts "Cross Validation Accuracy of Training Set = #{values[2]}\%"
-      puts result_summary("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv")[1]
+      puts result_summary("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv", labels)[1]
     end
   end
 end
 
-def construct_prediction_csv(type)
+def construct_prediction_csv(type, cross_validation=false)
+  if cross_validation
+    file = "#{@home}/data/evaluation_projects_#{type}"
+    actual = []
+    CSV.foreach("#{file}.libsvm", :col_sep => ' ') do |row|
+      actual << row[0].to_i
+    end
+    return actual.uniq!.sort
+  else
+    file = "#{@home}/data/evaluation_projects_two_#{type}"
+  end
+
   actual = []
-  CSV.foreach("#{@home}/data/evaluation_projects_two_#{type}.libsvm", :col_sep => ' ') do |row|
+  CSV.foreach("#{file}.libsvm", :col_sep => ' ') do |row|
     actual << row[0]
   end
 
   predicted = []
-  CSV.foreach("#{@home}/data/evaluation_projects_two_#{type}.predict") do |row|
-    predicted << row[0]
+  labels = []
+  CSV.foreach("#{file}.predict", :col_sep => ' ') do |row|
+    if row[0] == "labels"
+      labels = row[1..-1].map{|i| i.to_i}
+      next
+    end
+    predicted << row.join(",")
   end
 
   content = "ACTUAL,PREDICTED"
+  labels.each do |i|
+    content += ",#{i}_probability"
+  end
   actual.size.times do |i|
     content += "\n#{actual[i.to_i]},#{predicted[i.to_i]}"
   end
 
-  file = File.open("#{@home}/data/evaluation_projects_two_#{type}_prediction.csv", 'w')
+  file = File.open("#{file}_prediction.csv", 'w')
   file.write(content)
   file.close
+
+  return labels
 end
 
-def result_summary(prediction_file)
+def result_summary(prediction_file, labels)
   # Read in predictions into hash/matrix
+  categories = labels
+
   matrix = Hash.new(0)
   count = 0
-  categories = SortedSet.new
+
   CSV.foreach(prediction_file, :col_sep => ',') do |row|
 
     # Skip the first row of field names
@@ -349,10 +385,6 @@ def result_summary(prediction_file)
     end
 
     matrix[[row[0].to_i, row[1].to_i]] += 1
-
-    categories.add(row[0].to_i)
-    categories.add(row[1].to_i)
-
     count += 1
   end
 
@@ -379,7 +411,8 @@ def result_summary(prediction_file)
   output += "%-13s" % "Recall"
   output += "%-13s" % "Precision"
   output += "%-13s" % "Specificity"
-  output += "%-13s\n" % "F-1 Score"
+  output += "%-13s" % "F-1 Score"
+  output += "%-13s\n" % "Crude auROC"
 
   # Compute/store results for each category
   results = []
@@ -399,29 +432,32 @@ def result_summary(prediction_file)
 
     tpr = tp/(tp+fn).to_f
     fpr = fp/(fp+tn).to_f
-    acc = (tp+tn)/count.to_f
+    accuracy = (tp+tn)/count.to_f
     precision = tp/(tp+fp).to_f
     recall = tp/(tp+fn).to_f
     specificity = tn/(tn+fp).to_f
     f1 = 2*((recall*precision)/(recall+precision))
+    coarse_auroc = (1+tpr-fpr)/2
 
     output += "A%-5d" % i
     output += "%-13f" % tpr
     output += "%-13f" % fpr
-    output += "%-13f" % acc
+    output += "%-13f" % accuracy
     output += "%-13f" % recall
     output += "%-13f" % precision
     output += "%-13f" % specificity
-    output += "%-13f\n" % f1
+    output += "%-13f" % f1
+    output += "%-13f\n" % coarse_auroc
 
     results << {:category => i,
                 :tpr => tpr,
                 :fpr => fpr,
-                :acc => acc,
+                :accuracy => accuracy,
                 :recall => recall,
                 :precision => precision,
                 :specificity => specificity,
-                :f1 => f1
+                :f1 => f1,
+                :coarse_auroc => coarse_auroc
               }
   end
   return [results, output]
