@@ -151,6 +151,7 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
       values = best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}].dup
       values[:f_score] += result[i][1][:f_score]
       values[:coarse_auroc] += result[i][1][:coarse_auroc]
+      value[:youden_index] += result[i][1][:youden_index]
       values[:accuracy] += result[i][1][:accuracy]
       values[:rank] += result[i][1][:rank]
       best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}] = values
@@ -159,11 +160,11 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
 
   # Sort by rank and output
   puts "[LOG] Overall Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
-  puts "F-score and Coarse auROC are calculated using (total_value / \# of categories)"
+  puts "F-score, Coarse auROC and Youden's Index are calculated using (total_value / \# of categories)"
   puts "The divisor might not be consistent based on the availability of data in all categories"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F-score:%6f CauROC:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f_score]/(@projects.size*@run), v[:coarse_auroc]/(@projects.size*@run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F-score:%6f CauROC:%6f Youden-index:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f_score]/(@projects.size*@run), v[:coarse_auroc]/(@projects.size*@run), v[:youden_index]/(@projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 
@@ -188,6 +189,7 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
       values = best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}].dup
       values[:f_score] += result[i][1][:f_score]
       values[:coarse_auroc] += result[i][1][:coarse_auroc]
+      value[:youden_index] += result[i][1][:youden_index]
       values[:accuracy] += result[i][1][:accuracy]
       values[:rank] += result[i][1][:rank]
       best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}] = values
@@ -196,11 +198,11 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
 
   # Sort by rank and output
   puts "[LOG] Overall Best Parameter and Measures - Sorted by Rank(#{@sort_symbol})"
-  puts "F-score and Coarse auROC are calculated using (total_value / \# of categories)"
+  puts "F-score, Coarse auROC and Youden's Index are calculated using (total_value / \# of categories)"
   puts "The divisor might not be consistent based on the availability of data in all categories"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    puts "Rank:%-6d Accuracy:%6f F-score:%6f CauROC:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f_score]/(@projects.size*@run), v[:coarse_auroc]/(@projects.size*@run), k[:cost], k[:gamma]]
+    puts "Rank:%-6d Accuracy:%6f F-score:%6f CauROC:%6f Youden-index:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/(@projects.size*@run), v[:f_score]/(@projects.size*@run), v[:coarse_auroc]/(@projects.size*@run), v[:youden_index]/(@projects.size*@run), k[:cost], k[:gamma]]
   end
 end
 
@@ -267,13 +269,15 @@ def grid_search(type, run, sort_symbol, only_unknowns=false)
         accuracy = results[0].inject(0){|sum,a| sum + a[:accuracy].to_s.to_f}/labels.size
         f_score = results[0].inject(0){|sum,a| sum + a[:f_score].to_s.to_f}/labels.size
         coarse_auroc = results[0].inject(0){|sum,a| sum + a[:coarse_auroc].to_s.to_f}/labels.size
+        youden_index = results[0].inject(0){|sum,a| sum + a[:youden_index].to_s.to_f}/labels.size
 
         # Identify and store parameters and measures
         ranking << {:cost => cost,
                     :gamma => gamma,
                     :accuracy => accuracy,
                     :f_score => f_score,
-                    :coarse_auroc => coarse_auroc
+                    :coarse_auroc => coarse_auroc,
+                    :youden_index => youden_index
                    }
 
         # Move to the next iteration for the grid search based on the bounds
@@ -291,6 +295,7 @@ def grid_search(type, run, sort_symbol, only_unknowns=false)
         values = best[{:cost => sorted_ranking[i][:cost], :gamma => sorted_ranking[i][:gamma]}].dup
         values[:f_score] += sorted_ranking[i][:f_score]
         values[:coarse_auroc] += sorted_ranking[i][:coarse_auroc]
+        values[:youden_index] += sorted_ranking[i][:youden_index]
         values[:accuracy] += sorted_ranking[i][:accuracy]
         values[:rank] += i
         best[{:cost => sorted_ranking[i][:cost], :gamma => sorted_ranking[i][:gamma]}] = values
@@ -300,11 +305,11 @@ def grid_search(type, run, sort_symbol, only_unknowns=false)
 
   # Sort by rank and output
   output = "[LOG] Best Parameter and Measures - Sorted by Rank(#{sort_symbol})"
-  output += "\nF-score and Coarse auROC are calculated using (total_value / \# of categories)"
+  output += "\nF-score, Coarse auROC and Youden's Index are calculated using (total_value / \# of categories)"
   output += "\nThe divisor might not be consistent based on the availability of data in all categories"
   sorted_best = best.sort_by{|k,v| v[:rank]}
   sorted_best.each do |k,v|
-    output += "\nRank:%-6d Accuracy:%6f F-score:%6f CauROC:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/run, v[:f_score]/run, v[:coarse_auroc]/run, k[:cost], k[:gamma]]
+    output += "\nRank:%-6d Accuracy:%6f F-score:%6f CauROC:%6f Youden-index:%6f c:%f g:%f" % [v[:rank], v[:accuracy]/run, v[:f_score]/run, v[:coarse_auroc]/run, v[:youden_index]/run, k[:cost], k[:gamma]]
   end
   return [sorted_best, output]
 end
@@ -412,7 +417,8 @@ def result_summary(prediction_file, labels)
   output += "%-13s" % "Precision"
   output += "%-13s" % "Specificity"
   output += "%-13s" % "F-score"
-  output += "%-13s\n" % "Crude auROC"
+  output += "%-13s" % "CauROC"
+  output += "%-13s\n" % "Youden-index"
 
   # Compute/store results for each category
   results = []
@@ -438,6 +444,7 @@ def result_summary(prediction_file, labels)
     specificity = tn/(tn+fp).to_f
     f_score = 2*((recall*precision)/(recall+precision))
     coarse_auroc = (1+tpr-fpr)/2
+    youden_index = recall-(1-specificity)
 
     output += "A%-5d" % i
     output += "%-13f" % tpr
@@ -447,7 +454,8 @@ def result_summary(prediction_file, labels)
     output += "%-13f" % precision
     output += "%-13f" % specificity
     output += "%-13f" % f_score
-    output += "%-13f\n" % coarse_auroc
+    output += "%-13f" % coarse_auroc
+    output += "%-13f\n" % youden_index
 
     results << {:category => i,
                 :tpr => tpr,
@@ -457,7 +465,8 @@ def result_summary(prediction_file, labels)
                 :precision => precision,
                 :specificity => specificity,
                 :f_score => f_score,
-                :coarse_auroc => coarse_auroc
+                :coarse_auroc => coarse_auroc,
+                :youden_index => youden_index
               }
   end
   return [results, output]
