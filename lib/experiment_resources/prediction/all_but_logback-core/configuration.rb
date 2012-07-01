@@ -62,6 +62,7 @@ DataMapper::Model.raise_on_save_failure = true
 @@evaluation_seed = Random.new(srand)  # Use srand or actual seed value
 @@bounds = [[0.00, 0.70], [0.70, 0.90], [0.90, 1.00]]  # Category bound values
 @@divisor = 1  # Amount to divide the undersampled data by (use less of it)
+@divisor_range = (1..10).to_a  # The increments used for experiments
 @only_unknowns = true  # Use only the unknown (untrained) items if possible
 
 # Statistics variables
@@ -73,7 +74,7 @@ DataMapper::Model.raise_on_save_failure = true
 @gamma_limit = 1000
 @step_multiplier = 10
 @run = 10
-@sort_symbol = "f1"  # f1 || accuracy
+@sort_symbol = "f_score"  # accuracy || f_score || coarse_auroc || youden_index
 
 # Variables related to Javalanche's database usage
 @use_mysql = false

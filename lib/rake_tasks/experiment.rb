@@ -94,6 +94,56 @@ task :train_predict_all_projects_experiment do
   end
 end
 
+desc "Perform training/prediction of each project on itself using the specified parameters while incrementally increasing the divisor for unknowns"
+task :train_predict_each_project_incremental_divisor, :feature, :cost, :gamma, :needs => [:sqlite3] do |t, args|
+
+  features = Dir.entries("#{@experiment_resources_dir}/feature_sets").select {|entry| !File.directory? File.join("#{@experiment_resources_dir}/feature_sets",entry) and !(entry =='.' || entry == '..') }
+  projects = Dir.entries("#{@experiment_resources_dir}/prediction").select {|entry| File.directory? File.join("#{@experiment_resources_dir}/prediction",entry) and !(entry =='.' || entry == '..') }
+  original_divisor = File.open("#{@home}/lib/rake_tasks/configuration.rb").read.scan(/@@divisor = (\d+)/)[0][0]
+
+  features.each do |feature|
+
+    # Ignore all features that does not match the selected
+    next if !feature.include?("#{args[:feature]}.rb")
+
+    FileUtils.cp("#{@experiment_resources_dir}/feature_sets/#{feature}", "#{@home}/lib/feature_sets.rb")
+
+    projects.each do |project|
+
+      # Ignore the but the individual projects
+      next if project.include?("all")
+      puts "[LOG] Feature Set: #{feature}  Project: #{project}"
+
+      FileUtils.cp("#{@experiment_resources_dir}/prediction/#{project}/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
+
+      @divisor_range.each do |divisor|
+
+        changes = File.open("#{@home}/lib/rake_tasks/configuration.rb").read.sub(/@@divisor = (\d+)/, "@@divisor = #{divisor}")
+        File.open("#{@home}/lib/rake_tasks/configuration.rb", 'w') {|f| f.write(changes) }
+
+        file_class = "#{@experiment_resources_dir}/prediction/#{project}/prediction_class_divisor_#{divisor}_#{feature.chomp(".rb")}.txt"
+        file_method = "#{@experiment_resources_dir}/prediction/#{project}/prediction_method_divisor_#{divisor}_#{feature.chomp(".rb")}.txt"
+
+        if File.exist?(file_class)
+          FileUtils.rm(file_class)
+        end
+        if File.exist?(file_method)
+          FileUtils.rm(file_method)
+        end
+
+        @experiment_runs.times do |i|
+          `time rake train_predict_type_with_cost_gamma[\"class\",#{args[:cost]},#{args[:gamma]}] >> #{file_class}`
+          `time rake train_predict_type_with_cost_gamma[\"method\",#{args[:cost]},#{args[:gamma]}] >> #{file_method}`
+        end
+      end
+    end
+  end
+
+  # Revert the divisor back to original
+  changes = File.open("#{@home}/lib/rake_tasks/configuration.rb").read.sub(/@@divisor = (\d+)/, "@@divisor = #{original_divisor}")
+  File.open("#{@home}/lib/rake_tasks/configuration.rb", 'w') {|f| f.write(changes) }
+end
+
 desc "Perform grid search on the prediction set using the three combined feature sets on all individual projects and subsets of all(excluding one) vs. one"
 task :grid_search_experiment do
 
