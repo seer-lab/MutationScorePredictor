@@ -63,6 +63,7 @@ end
 task :train_predict_type_with_cost_gamma, :type, :cost, :gamma, :needs => [:sqlite3] do |t, args|
   type = args[:type] || "method"
   puts "[LOG] Using project(s) #{@evaluation_projects_one} vs project(s) #{@evaluation_projects_two}"
+  puts "[LOG] Using cost=#{args[:cost]} gamma=#{args[:gamma]}"
   puts "[LOG] Creating #{type} .libsvm file for projects_one"
   selected_indexes = MetricLibsvmSynthesizer.new(@evaluation_projects_one, @home).process(type)
   mv("#{@home}/data/evaluation_projects_#{type}.libsvm", "#{@home}/data/evaluation_projects_one_#{type}.libsvm")

@@ -94,6 +94,43 @@ task :train_predict_all_projects_experiment do
   end
 end
 
+desc "Perform training/prediction using the three combined feature sets on all individual projects and subsets of all(excluding one) vs. one using set parameters"
+task :train_predict_all_projects_with_parameters_experiment, :cost, :gamma, :needs => [:sqlite3] do |t, args|
+
+  features = Dir.entries("#{@experiment_resources_dir}/feature_sets").select {|entry| !File.directory? File.join("#{@experiment_resources_dir}/feature_sets",entry) and !(entry =='.' || entry == '..') }
+  projects = Dir.entries("#{@experiment_resources_dir}/prediction").select {|entry| File.directory? File.join("#{@experiment_resources_dir}/prediction",entry) and !(entry =='.' || entry == '..') }
+
+  features.each do |feature|
+
+    # Ignore all features that are not the combine sets
+    next if !feature.include?("combine")
+
+    FileUtils.cp("#{@experiment_resources_dir}/feature_sets/#{feature}", "#{@home}/lib/feature_sets.rb")
+
+    projects.each do |project|
+
+      # Ignore the 'all' project
+      next if project == "all"
+      puts "[LOG] Feature Set: #{feature}  Project: #{project}"
+
+      file_class = "#{@experiment_resources_dir}/prediction/#{project}/prediction_class_parameters_#{feature.chomp(".rb")}.txt"
+      file_method = "#{@experiment_resources_dir}/prediction/#{project}/prediction_method_parameters_#{feature.chomp(".rb")}.txt"
+
+      FileUtils.cp("#{@experiment_resources_dir}/prediction/#{project}/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
+      if File.exist?(file_class)
+        FileUtils.rm(file_class)
+      end
+      if File.exist?(file_method)
+        FileUtils.rm(file_method)
+      end
+      @experiment_runs.times do |i|
+        `time rake train_predict_type_with_cost_gamma[\"class\",#{args[:cost]},#{args[:gamma]}] >> #{file_class}`
+        `time rake train_predict_type_with_cost_gamma[\"method\",#{args[:cost]},#{args[:gamma]}] >> #{file_method}`
+      end
+    end
+  end
+end
+
 desc "Perform training/prediction of each project on itself using the specified parameters while incrementally increasing the divisor for unknowns"
 task :train_predict_each_project_incremental_divisor, :feature, :cost, :gamma, :needs => [:sqlite3] do |t, args|
 
