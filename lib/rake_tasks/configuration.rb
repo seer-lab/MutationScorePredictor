@@ -17,10 +17,10 @@ DataMapper::Model.raise_on_save_failure = true
 @project_src_directory = "#{@project_location}src/triangle/"  # Then prefix occurs
 @max_memory = "4000"  # In megabytes (the max avalible memory)
 @memory_for_tests = "4000"  # In megabytes (the memory needed for the test suite)
-@max_cores = "4"
+@max_cores = "8"
 @javalanche_log_level = "INFO"
 @javalanche_coverage = true
-@python = "python2"  # Python 2.7 command
+@python = "python"  # Python 2.7 command
 @rake = "rake"  # Rake command
 @classpath = ""  # Acquired through ant/maven extraction
 
