@@ -151,7 +151,7 @@ task :grid_search_all_vs_one, [:type] => [:sqlite3] do |t, args|
       values = best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}].dup
       values[:f_score] += result[i][1][:f_score]
       values[:coarse_auroc] += result[i][1][:coarse_auroc]
-      value[:youden_index] += result[i][1][:youden_index]
+      values[:youden_index] += result[i][1][:youden_index]
       values[:accuracy] += result[i][1][:accuracy]
       values[:rank] += result[i][1][:rank]
       best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}] = values
@@ -189,7 +189,7 @@ task :grid_search_each_self, [:type] => [:sqlite3] do |t, args|
       values = best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}].dup
       values[:f_score] += result[i][1][:f_score]
       values[:coarse_auroc] += result[i][1][:coarse_auroc]
-      value[:youden_index] += result[i][1][:youden_index]
+      values[:youden_index] += result[i][1][:youden_index]
       values[:accuracy] += result[i][1][:accuracy]
       values[:rank] += result[i][1][:rank]
       best[{:cost => result[i][0][:cost], :gamma => result[i][0][:gamma]}] = values

@@ -73,7 +73,7 @@ DataMapper::Model.raise_on_save_failure = true
 @gamma_limit = 1000
 @step_multiplier = 10
 @run = 10
-@sort_symbol = "f1"  # f1 || accuracy || coarse_auroc
+@sort_symbol = "f_score"  # accuracy || f_score || coarse_auroc || youden_index
 
 # Variables related to Javalanche's database usage
 @use_mysql = false
