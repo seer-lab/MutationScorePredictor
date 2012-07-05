@@ -115,7 +115,7 @@ end
 desc "Get the ordering of the attributes"
 task :attributes => [:sqlite3] do
   [ClassData, MethodData].each do |type|
-    puts "[LOG] Attribute Look-up List for #{type.class}:"
+    puts "[LOG] Attribute Look-up List for #{type}:"
     property_count = 0
     type.properties.each do |property|
 
