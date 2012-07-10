@@ -341,7 +341,11 @@ def construct_prediction_csv(type, cross_validation=false)
     CSV.foreach("#{file}.libsvm", :col_sep => ' ') do |row|
       actual << row[0].to_i
     end
-    return actual.uniq!.sort
+    if actual.uniq == nil
+      return actual
+    else
+      return actual.uniq.sort
+    end
   else
     file = "#{@home}/data/evaluation_projects_two_#{type}"
   end
