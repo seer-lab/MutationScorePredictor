@@ -95,7 +95,7 @@ task :train_predict_all_projects_experiment do
 end
 
 desc "Perform training/prediction using the three combined feature sets on all individual projects and subsets of all(excluding one) vs. one using set parameters"
-task :train_predict_all_projects_with_parameters_experiment, :cost, :gamma, :needs => [:sqlite3] do |t, args|
+task :train_predict_all_projects_with_parameters_experiment, :type, :cost, :gamma, :needs => [:sqlite3] do |t, args|
 
   features = Dir.entries("#{@experiment_resources_dir}/feature_sets").select {|entry| !File.directory? File.join("#{@experiment_resources_dir}/feature_sets",entry) and !(entry =='.' || entry == '..') }
   projects = Dir.entries("#{@experiment_resources_dir}/prediction").select {|entry| File.directory? File.join("#{@experiment_resources_dir}/prediction",entry) and !(entry =='.' || entry == '..') }
@@ -113,26 +113,21 @@ task :train_predict_all_projects_with_parameters_experiment, :cost, :gamma, :nee
       next if project == "all"
       puts "[LOG] Feature Set: #{feature}  Project: #{project}"
 
-      file_class = "#{@experiment_resources_dir}/prediction/#{project}/prediction_class_parameters_#{feature.chomp(".rb")}.txt"
-      file_method = "#{@experiment_resources_dir}/prediction/#{project}/prediction_method_parameters_#{feature.chomp(".rb")}.txt"
+      file = "#{@experiment_resources_dir}/prediction/#{project}/prediction_#{args[:type]}_parameters_#{feature.chomp(".rb")}.txt"
 
       FileUtils.cp("#{@experiment_resources_dir}/prediction/#{project}/configuration.rb", "#{@home}/lib/rake_tasks/configuration.rb")
-      if File.exist?(file_class)
-        FileUtils.rm(file_class)
-      end
-      if File.exist?(file_method)
-        FileUtils.rm(file_method)
+      if File.exist?(file)
+        FileUtils.rm(file)
       end
       @experiment_runs.times do |i|
-        `time rake train_predict_type_with_cost_gamma[\"class\",#{args[:cost]},#{args[:gamma]}] >> #{file_class}`
-        `time rake train_predict_type_with_cost_gamma[\"method\",#{args[:cost]},#{args[:gamma]}] >> #{file_method}`
+        `time rake train_predict_type_with_cost_gamma[\"#{args[:type]}\",#{args[:cost]},#{args[:gamma]}] >> #{file}`
       end
     end
   end
 end
 
 desc "Perform training/prediction of each project on itself using the specified parameters while incrementally increasing the divisor for unknowns"
-task :train_predict_each_project_incremental_divisor, :feature, :cost, :gamma, :needs => [:sqlite3] do |t, args|
+task :train_predict_each_project_incremental_divisor, :type, :feature, :cost, :gamma, :needs => [:sqlite3] do |t, args|
 
   features = Dir.entries("#{@experiment_resources_dir}/feature_sets").select {|entry| !File.directory? File.join("#{@experiment_resources_dir}/feature_sets",entry) and !(entry =='.' || entry == '..') }
   projects = Dir.entries("#{@experiment_resources_dir}/prediction").select {|entry| File.directory? File.join("#{@experiment_resources_dir}/prediction",entry) and !(entry =='.' || entry == '..') }
@@ -158,19 +153,14 @@ task :train_predict_each_project_incremental_divisor, :feature, :cost, :gamma, :
         changes = File.open("#{@home}/lib/rake_tasks/configuration.rb").read.sub(/@@divisor = (\d+)/, "@@divisor = #{divisor}")
         File.open("#{@home}/lib/rake_tasks/configuration.rb", 'w') {|f| f.write(changes) }
 
-        file_class = "#{@experiment_resources_dir}/prediction/#{project}/prediction_class_divisor_#{divisor}_#{feature.chomp(".rb")}.txt"
-        file_method = "#{@experiment_resources_dir}/prediction/#{project}/prediction_method_divisor_#{divisor}_#{feature.chomp(".rb")}.txt"
+        file = "#{@experiment_resources_dir}/prediction/#{project}/prediction_#{args[:type]}_divisor_#{divisor}_#{feature.chomp(".rb")}.txt"
 
-        if File.exist?(file_class)
-          FileUtils.rm(file_class)
-        end
-        if File.exist?(file_method)
-          FileUtils.rm(file_method)
+        if File.exist?(file)
+          FileUtils.rm(file)
         end
 
         @experiment_runs.times do |i|
-          `time rake train_predict_type_with_cost_gamma[\"class\",#{args[:cost]},#{args[:gamma]}] >> #{file_class}`
-          `time rake train_predict_type_with_cost_gamma[\"method\",#{args[:cost]},#{args[:gamma]}] >> #{file_method}`
+          `time rake train_predict_type_with_cost_gamma[\"#{args[:type]}\",#{args[:cost]},#{args[:gamma]}] >> #{file}`
         end
       end
     end
