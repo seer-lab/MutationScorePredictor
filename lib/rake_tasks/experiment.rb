@@ -187,9 +187,6 @@ task :grid_search_experiment do
   FileUtils.mkdir("#{@experiment_resources_dir}/grid_search/") if !File.directory?("#{@experiment_resources_dir}/grid_search/")
   features = Dir.entries("#{@experiment_resources_dir}/feature_sets").select {|entry| !File.directory? File.join("#{@experiment_resources_dir}/feature_sets",entry) and !(entry =='.' || entry == '..') }
 
-  original_only_unknown = File.open("#{@home}/lib/rake_tasks/configuration.rb").read.scan(/@only_unknowns = (true|false)/)[0][0]
-  only_unknowns = [true, false]
-
   features.each do |feature|
 
     # Ignore all features that are not the combine sets
@@ -201,22 +198,12 @@ task :grid_search_experiment do
     `time rake grid_search_all_vs_one["class"] > #{@experiment_resources_dir}/grid_search/all_vs_one_class_#{feature.chomp(".rb")}.txt`
     `time rake grid_search_all_vs_one["method"] > #{@experiment_resources_dir}/grid_search/all_vs_one_method_#{feature.chomp(".rb")}.txt`
 
-    # Change the only_unknown variable as well
-    only_unknowns.each do |unknown|
-      changes = File.open("#{@home}/lib/rake_tasks/configuration.rb").read.sub(/@only_unknowns = (true|false)/, "@only_unknowns = #{unknown}")
-      File.open("#{@home}/lib/rake_tasks/configuration.rb", 'w') {|f| f.write(changes) }
+    `time rake grid_search_all_self["class"] > #{@experiment_resources_dir}/grid_search/all_self_class_#{feature.chomp(".rb")}.txt`
+    `time rake grid_search_all_self["method"] > #{@experiment_resources_dir}/grid_search/all_self_method_#{feature.chomp(".rb")}.txt`
 
-      `time rake grid_search_all_self["class"] > #{@experiment_resources_dir}/grid_search/all_self_class_unknown_#{unknown}_#{feature.chomp(".rb")}.txt`
-      `time rake grid_search_all_self["method"] > #{@experiment_resources_dir}/grid_search/all_self_method_unknown_#{unknown}_#{feature.chomp(".rb")}.txt`
-
-      `time rake grid_search_each_self["class"] > #{@experiment_resources_dir}/grid_search/each_individual_class_unknown_#{unknown}_#{feature.chomp(".rb")}.txt`
-      `time rake grid_search_each_self["method"] > #{@experiment_resources_dir}/grid_search/each_individual_method_unknown_#{unknown}_#{feature.chomp(".rb")}.txt`
-    end
+    `time rake grid_search_each_self["class"] > #{@experiment_resources_dir}/grid_search/each_individual_class_#{feature.chomp(".rb")}.txt`
+    `time rake grid_search_each_self["method"] > #{@experiment_resources_dir}/grid_search/each_individual_method_#{feature.chomp(".rb")}.txt`
   end
-
-  # Revert the only_unknown back to original
-  changes = File.open("#{@home}/lib/rake_tasks/configuration.rb").read.sub(/@only_unknowns = (true|false)/, "@only_unknowns = #{original_only_unknown}")
-  File.open("#{@home}/lib/rake_tasks/configuration.rb", 'w') {|f| f.write(changes) }
 end
 
 desc "Analyze the class/method mean and standard deviation of the experiment results"
