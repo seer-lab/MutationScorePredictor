@@ -443,13 +443,23 @@ def result_summary(prediction_file, labels)
 
     tpr = tp/(tp+fn).to_f
     fpr = fp/(fp+tn).to_f
+    tpr = 0.0 if tpr.nan?
+    fpr = 0.0 if fpr.nan?
+
     accuracy = (tp+tn)/count.to_f
     precision = tp/(tp+fp).to_f
     recall = tp/(tp+fn).to_f
     specificity = tn/(tn+fp).to_f
+    accuracy = 0.0 if accuracy.nan?
+    precision = 0.0 if precision.nan?
+    recall = 0.0 if recall.nan?
+    specificity = 0.0 if specificity.nan?
+
+
     f_score = 2*((recall*precision)/(recall+precision))
     balanced_accuracy = (recall + specificity)/2
     youden_index = recall-(1-specificity)
+    f_score = 0.0 if f_score.nan?
 
     output += "A%-5d" % i
     output += "%-13f" % tpr
