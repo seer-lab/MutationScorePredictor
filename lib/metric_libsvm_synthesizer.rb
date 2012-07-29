@@ -246,7 +246,6 @@ class MetricLibsvmSynthesizer
   end
 
   def correlation(type, data_set)
-
     # Acquire hash of the fields (field => [value1, value2, ...])
     values = Hash.new()
     data_set.each do |item|
@@ -260,6 +259,24 @@ class MetricLibsvmSynthesizer
           category = [] if category == nil
           category << item.send(field)
           values[field] = category
+        elsif field == "mutation_score_of_covered_mutants"
+          # Track the original score
+          category = values[field]
+          category = [] if category == nil
+          category << item.send(field)
+          values[field] = category
+
+          # Track the category itself
+          category = values["category"]
+          category = [] if category == nil
+          score = item.send(field)
+          @@bounds.reverse.each_with_index do |bound, i|
+            if score >= bound[0]
+              category << @@bounds.size - i
+              break
+            end
+          end
+          values["category"] = category
         end
       end
     end
