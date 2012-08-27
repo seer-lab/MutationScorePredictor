@@ -18,8 +18,8 @@ acquire with relatively low resource consumption.
 
 # Background
 
-Some quick background material on mutation testing and support vector machines
-are supplied in the following sections.
+Some quick background material on mutation testing, support vector machines and
+software metrics are supplied in the following sections.
 
 ## Mutation Testing
 
@@ -44,7 +44,20 @@ known data (features and categories are known), and then are used on the test
 data (only features known). The classifier will attempt to correctly classify
 the unknown data given a model that was created during the training phase.
 
-**The selected support vector machine tool is [libsvm][9].**
+**The selected support vector machine tool is [LIBSVM][9].**
+
+## Software Metrics
+
+Software metrics are measurements of software artifact attributes. These
+attributes commonly characterize structural properties such as size and
+complexity. Our approach uses source code and test suite metrics as these two
+software artifacts are components of the mutation testing process. We gather a
+set of source code metrics for both the system under test and the test suite.
+We further collect the test suite's coverage over the system under test.
+
+**The selected source code metric tool is the [Eclipse Metrics Plugin][5].**
+
+**The selected test suite coverage metric tool is [EMMA][10].**
 
 # Instructions
 
@@ -52,7 +65,7 @@ This project requires multiple languages and tools to function as intended. The
 list of requirements are displayed below, as well as the method to execute this
 project as intended. To aid the user in executing the method, a _Rakefile_
 exists with the project to automate some of the steps.
- 
+
 ## Requirements
 
 The following list enumerates the requirements for this project. The project
@@ -83,4 +96,5 @@ was developed on Linux and uses some Linux-only features.
   [6]: http://ant.apache.org/ "Ant"
   [7]: http://maven.apache.org/ "Maven"
   [8]: http://www.st.cs.uni-saarland.de/~schuler/javalanche/ "Javalanche"
-  [9]: http://www.csie.ntu.edu.tw/~cjlin/libsvm/ "libsvm"
+  [9]: http://www.csie.ntu.edu.tw/~cjlin/libsvm/ "LIBSVM"
+  [10]: http://emma.sourceforge.net/ "EMMA"
