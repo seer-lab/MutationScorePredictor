@@ -82,11 +82,16 @@ was developed on Linux and uses some Linux-only features.
 
 ## Method
 
-1. Import project into Eclipse (ensure no errors)
+1. Import project into Eclipse (consider looking at [Selecting a Project][12])
 2. Enable the metrics reporting (within the project's properties in Eclipse)
 3. Run the rake task 'install' to install the necessary components
 4. Run the rake task 'setup_svm' to build up the support vector machine
 5. Run the rake task 'cross_validation' to test the cross validation accuracy
+
+## Usage
+
+See the [Usage][11] page in the Wiki for detailed explaination of the the
+various commands provided in the mutation_score_predictor.
 
   [1]: http://www.ruby-lang.org/en/ "Ruby"
   [2]: http://www.python.org/ "Python"
@@ -98,3 +103,5 @@ was developed on Linux and uses some Linux-only features.
   [8]: http://www.st.cs.uni-saarland.de/~schuler/javalanche/ "Javalanche"
   [9]: http://www.csie.ntu.edu.tw/~cjlin/libsvm/ "LIBSVM"
   [10]: http://emma.sourceforge.net/ "EMMA"
+  [11]: https://github.com/sqrlab/mutation_score_predictor/wiki/Usage
+  [12]: https://github.com/sqrlab/mutation_score_predictor/wiki/Selecting-a-Project
